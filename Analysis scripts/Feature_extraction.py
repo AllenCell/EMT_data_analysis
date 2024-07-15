@@ -2,11 +2,13 @@
 import numpy as np
 import pandas as pd
 import os
+import pickle as pkl
 
 import warnings
 warnings.filterwarnings("ignore")
 
 import scipy.ndimage
+from skimage.transform import SimilarityTransform, warp
 from aicsimageio import AICSImage
 from tqdm import tqdm
 
@@ -118,6 +120,39 @@ def import_folder(folder_path):
         df=pd.concat([df,f1])
     return df
 
+#######----compiling all movies in a single dataset----####
+def align_image(
+        img: np.ndarray, 
+        barcode: str,
+        inverse: bool = False,
+        alignemnt_folder: str = '/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/'    
+    ):
+    '''
+    This function aligns an image according to the camera alignment matrix for its barcode.
+    
+    Parameters
+    ----------
+    img: np.ndarray
+        Image to be aligned. Image assumed to be ZYX.
+    barcode: str
+        Barcode of the image. Used to find the alignment matrix.
+    inverse: bool
+        If True, the inverse of the alignment matrix is used for alignment. Default is False.
+        Alignment matrices are calculated to aligned camera 1 to camera 2. If the image is from camera 2, the inverse of the alignment matrix should be used.
+    alignment_folder: str
+        Path to the folder containing the alignment matrices, saved as pkl files.
+    '''
+    
+    alignMatrix = pkl.load(open(f'{alignemnt_folder}/{barcode}_alignmentmatrix.pkl', 'rb'))
+    transform = SimilarityTransform(matrix=alignMatrix)
+    if inverse:
+        transform = transform.inverse
+    
+    img_aligned = np._empty_like(img, dtype=img.dtype)
+    for z in range(img.shape[0]):
+        img_aligned[z] = warp(img[z], transform, order=0, preserve_range=True)
+    
+    return img_aligned
 
 
 ######----adding normalized Z-------#####
