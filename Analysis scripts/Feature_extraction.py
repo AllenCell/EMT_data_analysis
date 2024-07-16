@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
 from aicsfiles import FileManagementSystem 
-fms=FileManagementSystem()
+fms=FileManagementSystem.from_env('prod')
 import platform
 from pathlib import Path
 
@@ -42,20 +42,24 @@ def compute_bf_colony_features(df, save_folder):
         print(f'FMS_id-{fms_id}')
         print('Getting raw data...')
         file_fms_id=df_fms.fms_id.values[0]
-        record=fms.get_file_by_id(file_fms_id)
-        Path=record.path
+        record = list(fms.find(
+            annotations={"File Id":file_fms_id},
+            limit=1,
+        ))[0]
+        
+        file_path=record.path
         if platform.system()=='Windows':
-            path_w=Path.replace('/','\\')
+            path_w=file_path.replace('/','\\')
             img=AICSImage(repr(path_w)[1:-1])
         else:
             img=AICSImage(Path)
     
         print('Getting colony mask....')
         if platform.system()!='Windows':
-            folder=df_fms.colony_mask_path.values[0]
+            folder = df_fms.colony_mask_path.values[0]
             folder = Path(folder).as_posix()
         else:
-            folder=df_fms.colony_mask_path.values[0]
+            folder = df_fms.colony_mask_path.values[0]
         print(folder)
         t, mask_path=[],[]
         for file in os.listdir(folder):
@@ -68,6 +72,7 @@ def compute_bf_colony_features(df, save_folder):
                 else:
                     mask_path.append(folder+'\\'+file)
         df_seg=pd.DataFrame(zip(t, mask_path), columns=['Timepoint','Mask_path'])
+        
         print('Computing features....')
         df_cr=pd.DataFrame()
         l=len(t)
@@ -79,6 +84,11 @@ def compute_bf_colony_features(df, save_folder):
             seg_path=df_seg['Mask_path'][df_seg.Timepoint==time].values[0]
                 
             img_seg=AICSImage(seg_path).data.squeeze()
+            
+            if align_image:
+                barcode = record.annotations['Barcode'][0]
+                img_seg = align_image(img_seg, barcode, inverse=True)
+            
             s_z=int(img_seg.shape[0])
             z,area,mean_int, total_int, var_int=[],[],[],[],[]
             for i in np.arange(s_z):
