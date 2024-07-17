@@ -90,8 +90,7 @@ def compute_bf_colony_features(df, save_folder, align=True):
             
             if align:
                 barcode = list(record.annotations['Plate Barcode'])[0]
-                alignMatrix = pkl.load(open(f'/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/{barcode}_alignmentmatrix.pkl', 'rb'))
-                transform = SimilarityTransform(matrix=alignMatrix)
+                transform = get_alignment_matrix(barcode)
                 transform = transform.inverse
             
             s_z=int(img_seg.shape[0])
@@ -139,7 +138,7 @@ def import_folder(folder_path):
         df=pd.concat([df,f1])
     return df
 
-#######----compiling all movies in a single dataset----####
+#######----apply alignment matrix to 2D image----####
 def align_image(
         img: np.ndarray, 
         transform: SimilarityTransform   
@@ -154,8 +153,21 @@ def align_image(
     transform: SimilarityTransform
         Transformation matrix to align the image.
     '''
-    
     return warp(img, transform, order=0, preserve_range=True)
+
+def get_alignment_matrix(barcode, alignment_folder='/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/'):
+    '''
+    This function returns the alignment matrix for a given barcode.
+    
+    Parameters
+    ----------
+    barcode: str
+        Barcode of the image.
+    alignment_folder: str
+        Folder path where alignment matrices are stored.
+    '''
+    matrix = pkl.load(open(f'{alignment_folder}/{barcode}_alignmentmatrix.pkl', 'rb'))
+    return SimilarityTransform(matrix=matrix)
 
 
 ######----adding normalized Z-------#####
