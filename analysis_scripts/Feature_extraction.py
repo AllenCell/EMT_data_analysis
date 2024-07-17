@@ -20,7 +20,7 @@ fms=FileManagementSystem.from_env('prod')
 import platform
 from pathlib import Path
 
-def compute_bf_colony_features(df, save_folder):
+def compute_bf_colony_features(df, save_folder, align=True):
     '''
     This function  computes area of the BF colony mask at every z position and also extracts corresponding intensity values from the fluorescence channel. It also adds other features from the BF colony mask.
     Parameters
@@ -31,10 +31,13 @@ def compute_bf_colony_features(df, save_folder):
     save_folder: path
         Folder path where feature csv for each movie is stored
 
+    align_image: Bool
+        Flag to enable alignment of the image using the barcode of the movie
+
 
     Returns
     -------
-    saves feature files for each movie in the mentionde folder'''
+    saves feature files for each movie in the mentioned folder'''
 
 
     for fms_id, df_fms in tqdm(df.groupby('fms_id')):
@@ -52,7 +55,7 @@ def compute_bf_colony_features(df, save_folder):
             path_w=file_path.replace('/','\\')
             img=AICSImage(repr(path_w)[1:-1])
         else:
-            img=AICSImage(Path)
+            img=AICSImage(file_path)
     
         print('Getting colony mask....')
         if platform.system()!='Windows':
@@ -85,16 +88,22 @@ def compute_bf_colony_features(df, save_folder):
                 
             img_seg=AICSImage(seg_path).data.squeeze()
             
-            if align_image:
-                barcode = record.annotations['Barcode'][0]
-                img_seg = align_image(img_seg, barcode, inverse=True)
+            if align:
+                barcode = list(record.annotations['Plate Barcode'])[0]
+                alignMatrix = pkl.load(open(f'/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/{barcode}_alignmentmatrix.pkl', 'rb'))
+                transform = SimilarityTransform(matrix=alignMatrix)
+                transform = transform.inverse
             
             s_z=int(img_seg.shape[0])
             z,area,mean_int, total_int, var_int=[],[],[],[],[]
             for i in np.arange(s_z):
                 z.append(i)
-                select=np.where(img_seg[i], img_raw[i], 0 )
-                mask=np.bool_(img_seg[i])
+                seg_z = img_seg[i]
+                if align:
+                    seg_z = align_image(seg_z, transform)
+                
+                # select=np.where(seg_z, img_raw[i], 0 )
+                mask=np.bool_(seg_z)
                 img_int=img_raw[i]
                 intensity=np.mean(img_int[mask])
                 ar=np.count_nonzero(mask)
@@ -119,7 +128,7 @@ def compute_bf_colony_features(df, save_folder):
         df_cr['fms_id']=fms_id
         df_cr['gene']=df_fms.gene.values[0]
         df_cr['Condition']=df_fms.fms_condition.values[0]
-        df_cr.to_csv(save_folder+f'\Features_bf_colony_mask_{fms_id}.csv')
+        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{fms_id}.csv')
 
 
 #######----compiling all movies in a single dataset----####
@@ -133,9 +142,7 @@ def import_folder(folder_path):
 #######----compiling all movies in a single dataset----####
 def align_image(
         img: np.ndarray, 
-        barcode: str,
-        inverse: bool = False,
-        alignemnt_folder: str = '/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/'    
+        transform: SimilarityTransform   
     ):
     '''
     This function aligns an image according to the camera alignment matrix for its barcode.
@@ -143,26 +150,12 @@ def align_image(
     Parameters
     ----------
     img: np.ndarray
-        Image to be aligned. Image assumed to be ZYX.
-    barcode: str
-        Barcode of the image. Used to find the alignment matrix.
-    inverse: bool
-        If True, the inverse of the alignment matrix is used for alignment. Default is False.
-        Alignment matrices are calculated to aligned camera 1 to camera 2. If the image is from camera 2, the inverse of the alignment matrix should be used.
-    alignment_folder: str
-        Path to the folder containing the alignment matrices, saved as pkl files.
+        Image to be aligned. Image assumed to be YX.
+    transform: SimilarityTransform
+        Transformation matrix to align the image.
     '''
     
-    alignMatrix = pkl.load(open(f'{alignemnt_folder}/{barcode}_alignmentmatrix.pkl', 'rb'))
-    transform = SimilarityTransform(matrix=alignMatrix)
-    if inverse:
-        transform = transform.inverse
-    
-    img_aligned = np._empty_like(img, dtype=img.dtype)
-    for z in range(img.shape[0]):
-        img_aligned[z] = warp(img[z], transform, order=0, preserve_range=True)
-    
-    return img_aligned
+    return warp(img, transform, order=0, preserve_range=True)
 
 
 ######----adding normalized Z-------#####
