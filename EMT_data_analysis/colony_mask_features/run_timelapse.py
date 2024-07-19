@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 from EMT_data_analysis.analysis_scripts.Feature_extraction import compute_bf_colony_features
 
 def main(csv_path, output_path, idx):
-    df_data = pd.read_csv('colony_mask_data.csv')
+    df_data = pd.read_csv(csv_path)
     
     fms = df_data.iloc[idx]['fms_id']
     df_fms = df_data[df_data['fms_id'] == fms]
