@@ -2,7 +2,7 @@
 #SBATCH --job-name=colony_mask
 #SBATCH --mem=10G
 #SBATCH -c 1
-#SBATCH --time=1:00:00
+#SBATCH --time=3:00:00
 #SBATCH --partition=aics_cpu_general
 #SBATCH --array=0-388%10
 #SBATCH --output=/allen/aics/assay-dev/users/Filip/Public_Repos/emt-data-analysis/logs/%x_%A_%a.out
