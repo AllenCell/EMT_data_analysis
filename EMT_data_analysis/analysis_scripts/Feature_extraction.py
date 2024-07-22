@@ -2,17 +2,15 @@
 import numpy as np
 import pandas as pd
 import os
-import pickle as pkl
 
 import warnings
 warnings.filterwarnings("ignore")
 
 import scipy.ndimage
-from skimage.transform import SimilarityTransform, warp
 from aicsimageio import AICSImage
 from tqdm import tqdm
 
-
+from Image_alignment import align_image, get_alignment_matrix
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
 from aicsfiles import FileManagementSystem 
