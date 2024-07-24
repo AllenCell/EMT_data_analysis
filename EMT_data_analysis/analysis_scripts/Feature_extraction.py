@@ -10,7 +10,7 @@ import scipy.ndimage
 from aicsimageio import AICSImage
 from tqdm import tqdm
 
-from Image_alignment import align_image, get_alignment_matrix
+from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
 from aicsfiles import FileManagementSystem 
