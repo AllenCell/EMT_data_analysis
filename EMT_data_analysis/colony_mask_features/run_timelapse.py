@@ -28,7 +28,7 @@ def main(csv_path, output_path, idx):
 if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='/allen/aics/assay-dev/users/Filip/Public_Repos/emt-data-analysis/colony_mask_data.csv')
     parser.add_argument('--output_path', type=str, default='/allen/aics/assay-dev/users/Filip/Data/EMT-colony-mask-features/')
-    parser.add_argument('--idx', type=int)
+    parser.add_argument('--idx', type=int, required=True)
     
     args = parser.parse_args()
     main(args.data_path, args.output_path, args.idx)
