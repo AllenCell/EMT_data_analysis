@@ -27,6 +27,8 @@ labeled versions of the segmentations from "1." -> skeleton, edge, and node imag
 6. <tt>network_plots.py</tt>:
 the .tsv produced by "3." and "5." above -> various plots
 
+**NOTE: BEWARE -- The output of this workflow will produce about 136 GB of data.**
+
 ## USAGE
 The workflow was run sequentially in a virtual environment containing the packages and package versions found in the requirements.txt file (located in the same location as this README).
 The Python version used was Python 3.11.5.
