@@ -42,3 +42,4 @@ The file containing my annotations of movies (called <tt>zo1_to_seg_done.csv</tt
 ## TO-DO
 - replace the <tt>AICSImageIO</tt> package with the <tt>BIOIO</tt> package
 - save files in <tt>.OME.TIFF</tt> format instead of <tt>.TIFF</tt>
+- if this workflow is included in the initial submission, then update the filepaths currently pointing to VAST folders (e.g. the ones found in "/annotations/zo1_to_seg_done.csv" and in "label_segmentations.py") to point to the data uploaded to the S3 bucket
