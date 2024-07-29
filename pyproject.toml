@@ -1,0 +1,24 @@
+[project]
+name = "EMT_data_analysis"
+version = "0.0.0"
+description = "EMT data analysis scripts"
+authors = [
+    {email = "cells@alleninstitute.org"},
+]
+dependencies = [
+    "numpy>=2.0.0",
+    "pandas>=2.0.0",
+    "scipy>=1.13.1",
+    "aicsimageio>=4.14.0",
+    "tqdm>=4.66.4",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.optional-dependencies]
+internal = [
+    "aicsfiles>=5.1",
+]
+
+[tool.pdm]
