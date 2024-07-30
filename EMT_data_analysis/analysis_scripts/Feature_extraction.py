@@ -6,7 +6,6 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 
-import scipy.ndimage
 from aicsimageio import AICSImage
 from tqdm import tqdm
 
