@@ -12,7 +12,6 @@ import plotly.express as px
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from scipy.signal import savgol_filter
 # %% [markdown]
 ### creating a directory for figures
 cwd=os.getcwd()
@@ -96,7 +95,6 @@ df_summary=df_f.groupby('fms_id').agg('first').reset_index()
 # Plotting migration box plots 
 df_g=df_summary[df_summary.gene.isin(gene_list)]
 n_m=df_g.fms_id.nunique()
-import plotly.io as pio
 df_g=df_g.sort_values('Condition')
 fig_mig=px.box(df_g, x='Condition', y='Migration_hr', color='Condition', color_discrete_map=color_map, points='all', template='simple_white',range_y=(15,40), width=800, height=600)
 fig_mig.update_layout(yaxis_title='Migration time (hr)',font=dict(size=18))

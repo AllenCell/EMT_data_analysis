@@ -9,10 +9,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import scipy.ndimage
+from scipy.signal import savgol_filter
 from aicsimageio import AICSImage
 from tqdm import tqdm
-
-from aicsfiles import FileManagementSystem as fms
 
 import platform
 from pathlib import Path
@@ -141,7 +140,6 @@ def add_bottom_mip_migration(df_merged):
         df_area=pd.DataFrame(zip(tp,ar_v), columns=['Timepoint','Bottom_z_Area_pixels'])
         print('adding migration timing..')
         raw_values=df_area.Bottom_z_Area_pixels.values
-        from scipy.signal import savgol_filter
         df_area['dy2']=savgol_filter(raw_values,polyorder=2, window_length=40, deriv=2)
         d_filt=df_area[(df_area.Timepoint>=35)&(df_area.Timepoint<=80)]
         index_infl=d_filt['dy2'].idxmax()
