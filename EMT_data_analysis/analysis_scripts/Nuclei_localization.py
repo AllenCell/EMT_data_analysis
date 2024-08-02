@@ -57,14 +57,14 @@ def nuclei_localization(
     nuclei = []
     for timepoint in range(num_timepoints):
         # check if mesh exists for this timepoint
-        if timepoint not in meshes.keys():
+        if f'{timepoint}' not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
         
         # localize nuclei
         print(f"Localizing nuclei for timepoint {timepoint}...")
         nuclei_tp = localize_for_timepoint(
-            mesh=meshes[timepoint],
+            mesh=meshes[f'{timepoint}'],
             seg=segmentations.get_image_data("ZYX", T=timepoint).squeeze(),
             align_segmentation=align_segmentation,
             alignment_folder=alignment_folder,
