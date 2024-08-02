@@ -57,14 +57,14 @@ def nuclei_localization(
     nuclei = []
     for timepoint in range(num_timepoints):
         # check if mesh exists for this timepoint
-        if f"Timepoint_{timepoint}" not in meshes.keys():
+        if timepoint not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
         
         # localize nuclei
         print(f"Localizing nuclei for timepoint {timepoint}...")
         nuclei_tp = localize_for_timepoint(
-            mesh=meshes[f"Timepoint_{timepoint}"],
+            mesh=meshes[timepoint],
             seg=segmentations.get_image_data("ZYX", T=timepoint).squeeze(),
             align_segmentation=align_segmentation,
             alignment_folder=alignment_folder,
@@ -76,7 +76,7 @@ def nuclei_localization(
         
     # save nuclei data
     nuclei = pd.concat(nuclei)
-    out_fn = out_dir / Path(segmentation_fn).name.replace("_segmentation.tif", "_localized_nuclei.csv")
+    out_fn = out_dir / (Path(segmentation_fn).stem.replace("_segmentation", "_localized_nuclei") + ".csv")
     nuclei.to_csv(out_fn, index=False)
     
 #####----------Helper Functions----------#####
@@ -107,7 +107,6 @@ def localize_for_timepoint(
     
     # align segmentation if required
     if align_segmentation:
-        barcode = mesh_fn.stem.split("_")[0]
         transform = get_alignment_matrix(barcode, alignment_folder)
         seg = align_image(seg, transform)
 
