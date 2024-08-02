@@ -67,7 +67,7 @@ def nuclei_localization(
             mesh=meshes[f"Timepoint_{timepoint}"],
             seg=segmentations.get_image_data("ZYX", T=timepoint).squeeze(),
             align_segmentation=align_segmentation,
-            alignment_folder=alignment_folder
+            alignment_folder=alignment_folder,
             barcode = Path(segmentation_fn).name.split("_")[0]
         )
         
@@ -79,8 +79,7 @@ def nuclei_localization(
     out_fn = out_dir / Path(segmentation_fn).name.replace("_segmentation.tif", "_localized_nuclei.csv")
     nuclei.to_csv(out_fn, index=False)
     
-    
-    
+#####----------Helper Functions----------#####
     
 def localize_for_timepoint(
         mesh:pv.PolyData, 
@@ -89,6 +88,22 @@ def localize_for_timepoint(
         alignment_folder:str,
         barcode:str
     ):
+    '''
+        This function localizes nuclei inside a 3D mesh for a given timepoint.
+        
+        Parameters
+        ----------
+        mesh: pv.PolyData
+            3D mesh for the timepoint.
+        seg: np.ndarray
+            Nuclei segmentation for the timepoint.
+        align_segmentation: bool
+            Flag to enable alignment of the segmentation using the barcode of the movie.
+        alignment_folder: str
+            Folder path where alignment matrices are stored.
+        barcode: str
+            Barcode of the movie.
+    '''
     
     # align segmentation if required
     if align_segmentation:
@@ -118,7 +133,7 @@ def localize_for_timepoint(
     nucData["Inside"] = []
     nucData["Centroid"] = []
     
-    
+    # localize nuclei
     props = regionprops(seg.astype(int))
     for prop in props:
         nucData['Label'].append(prop.label)
@@ -137,9 +152,4 @@ def localize_for_timepoint(
         else:
             nucData['Inside'].append(False)
     
-    # save nuclei data
-    nucData = pd.DataFrame(nucData)
-    out_fn = Path(mesh_fn).name.replace("_segmentation_mesh.stl", "_localized_nuclei.csv")
-    nucData.to_csv(out_fn, index=False)
-    
-    return
+    return pd.DataFrame(nucData)
