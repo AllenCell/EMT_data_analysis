@@ -7,7 +7,7 @@ from pathlib import Path
 # 3d meshing libraries
 import pyvista as pv
 import trimesh
-import pymeshfix as mf
+import point_cloud_utils as pcu
 
 from aicsimageio import AICSImage
 
@@ -111,13 +111,22 @@ def localize_for_timepoint(
         seg = align_image(seg, transform)
 
     # convert 2d surface mesh into an enclosed 3d mesh
-    mfix = mf.MeshFix()
-    mfix.repair()
-    mesh = pv.wrap(mfix.mesh)
-    mesh = trimesh.Trimesh(
-        vertices=mesh.points, 
-        faces=mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
-    )
+    vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
+    vert_up = np.zeros_like(vert)
+    np.copyto(vert_up, vert)
+    vert_up[:, 2] = max(vert[:,2])
+    face_up = np.zeros_like(faces)
+    np.copyto(face_up, faces)
+
+    mesh = trimesh.Trimesh(vertices=vert, faces=faces)
+    roof = trimesh.Trimesh(vertices=vert_up, faces=face_up)
+    mesh_conc = trimesh.util.concatenate(mesh, roof)
+
+    vert, faces = mesh_conc.vertices, mesh_conc.faces
+
+    vw, fw = pcu.make_mesh_watertight(vert, faces, 10_000)
+
+    mesh = trimesh.Trimesh(vertices=vw, faces=fw)
 
     # transpose segmentation to XYZ coordinates and set z-scale for isotropic resolution
     seg = seg.transpose(2, 1, 0)
