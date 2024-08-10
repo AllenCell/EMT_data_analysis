@@ -24,7 +24,6 @@ license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 internal = [
-    "aicsfiles>=5.1",
 ]
 
 [tool.pdm]

@@ -12,10 +12,12 @@ from tqdm import tqdm
 from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
-from aicsfiles import FileManagementSystem 
-fms=FileManagementSystem.from_env('prod')
 import platform
 from pathlib import Path
+
+
+UNIQUE_ID_COLUMN = "TODO"
+S3_PATH_COLUMN = "TODO"
 
 def compute_bf_colony_features(df, save_folder, align=True):
     '''
@@ -37,17 +39,11 @@ def compute_bf_colony_features(df, save_folder, align=True):
     saves feature files for each movie in the mentioned folder'''
 
 
-    for fms_id, df_fms in tqdm(df.groupby('fms_id')):
+    for id, df_fms in tqdm(df.groupby(UNIQUE_ID_COLUMN)):
     #importing raw image
-        print(f'FMS_id-{fms_id}')
+        print(f'ID {id}')
         print('Getting raw data...')
-        file_fms_id=df_fms.fms_id.values[0]
-        record = list(fms.find(
-            annotations={"File Id":file_fms_id},
-            limit=1,
-        ))[0]
-        
-        file_path=record.path
+        file_path = df_fms[S3_PATH_COLUMN].iloc[0]
         if platform.system()=='Windows':
             path_w=file_path.replace('/','\\')
             img=AICSImage(repr(path_w)[1:-1])

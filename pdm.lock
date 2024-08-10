@@ -5,28 +5,10 @@
 groups = ["default", "internal"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:6738989ecbfdc9d09057ab92885f4955af2d383951224e05c5b94d944e309b14"
+content_hash = "sha256:08b42631a83109275315d9271e01e7f612e6ed356223ca101cae1828a04f5097"
 
 [[metadata.targets]]
 requires_python = ">=3.10"
-
-[[package]]
-name = "aicsfiles"
-version = "7.9.0"
-requires_python = ">=3.9.2"
-summary = "Client SDK for the File Management System"
-dependencies = [
-    "jsonpickle<4,>=2.2.0",
-    "pandas<3.0.0,>=1.5.1",
-    "python-dateutil~=2.8",
-    "rehash==1.0.0",
-    "requests~=2.28",
-    "tenacity~=8.1",
-]
-files = [
-    {file = "aicsfiles-7.9.0-py3-none-any.whl", hash = "sha256:cd17b08e9a9b3c8ec67282089610d83b8f4518ccd65fd2c34e3b7a05d2a80ba9"},
-    {file = "aicsfiles-7.9.0.tar.gz", hash = "sha256:6b05f69af95bcd776273b5399156dfaf3a16050913f357e511d1834ee8af162d"},
-]
 
 [[package]]
 name = "aicsimageio"
@@ -710,19 +692,6 @@ summary = "JSON Matching Expressions"
 files = [
     {file = "jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980"},
     {file = "jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe"},
-]
-
-[[package]]
-name = "jsonpickle"
-version = "2.2.0"
-requires_python = ">=2.7"
-summary = "Python library for serializing any arbitrary object graph into JSON"
-dependencies = [
-    "importlib-metadata; python_version < \"3.8\"",
-]
-files = [
-    {file = "jsonpickle-2.2.0-py2.py3-none-any.whl", hash = "sha256:de7f2613818aa4f234138ca11243d6359ff83ae528b2185efdd474f62bcf9ae1"},
-    {file = "jsonpickle-2.2.0.tar.gz", hash = "sha256:7b272918b0554182e53dc340ddd62d9b7f902fec7e7b05620c04f3ccef479a0e"},
 ]
 
 [[package]]
@@ -1617,15 +1586,6 @@ files = [
     {file = "PyYAML-6.0.1-cp39-cp39-win32.whl", hash = "sha256:faca3bdcf85b2fc05d06ff3fbc1f83e1391b3e724afa3feba7d13eeab355484c"},
     {file = "PyYAML-6.0.1-cp39-cp39-win_amd64.whl", hash = "sha256:510c9deebc5c0225e8c96813043e62b680ba2f9c50a08d3724c7f28a747d1486"},
     {file = "PyYAML-6.0.1.tar.gz", hash = "sha256:bfdf460b1736c775f2ba9f6a92bca30bc2095067b8a9d77876d1fad6cc3b4a43"},
-]
-
-[[package]]
-name = "rehash"
-version = "1.0.0"
-summary = "Resumable hashlib: a picklable interface to CPython's OpenSSL-based hashlib standard library"
-files = [
-    {file = "rehash-1.0.0-py2.py3-none-any.whl", hash = "sha256:2e903ff2c4c7668adaf6cc937b44cbe6b87e7a1c76587b7e0b896714e522f4fa"},
-    {file = "rehash-1.0.0.tar.gz", hash = "sha256:8d8d4d4a6848dd75e638d4720e172d95927ed32a4a11e2e8767e95beef881581"},
 ]
 
 [[package]]

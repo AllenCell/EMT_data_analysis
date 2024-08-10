@@ -15,9 +15,6 @@ from skimage.measure import regionprops
 
 from .Image_alignment import align_image, get_alignment_matrix
 
-from aicsfiles import FileManagementSystem 
-fms=FileManagementSystem.from_env('prod')
-
 #####----------Main Analysis Function----------#####
 
 def nuclei_localization(
