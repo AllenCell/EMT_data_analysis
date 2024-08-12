@@ -1,6 +1,6 @@
 ######---------importing libraries--------#######
 import numpy as np
-import pickle as pkl
+from typing import List, Union
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -26,16 +26,16 @@ def align_image(
     '''
     return warp(img, transform, order=0, preserve_range=True)
 
-def get_alignment_matrix(barcode, alignment_folder='/allen/aics/assay-dev/users/Filip/Data/EMT-alignment-matrices/alignment_info/'):
+def get_alignment_matrix(alignment_matrix:Union[np.ndarray, str]):
     '''
     This function returns the alignment matrix for a given barcode.
     
     Parameters
     ----------
-    barcode: str
-        Barcode of the image.
-    alignment_folder: str
-        Folder path where alignment matrices are stored.
+    alignment_matrix: Union[np.ndarray, str]
+        Alignment parameters, as a 3x3 matrix, as provided by the "Camera Alignment Matrix" column. 
+        Can either be the original string from the manifest or already converted to an ndarray
     '''
-    matrix = pkl.load(open(f'{alignment_folder}/{barcode}_alignmentmatrix.pkl', 'rb'))
-    return SimilarityTransform(matrix=matrix)
+    if isinstance(alignment_matrix, str):
+        alignment_matrix = np.ndarray(eval(alignment_matrix))
+    return SimilarityTransform(matrix=alignment_matrix)

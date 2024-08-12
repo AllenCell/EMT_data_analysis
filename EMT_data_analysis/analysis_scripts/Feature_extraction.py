@@ -6,16 +6,16 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 
-from aicsimageio import AICSImage
+from bioio import BioImage
 from tqdm import tqdm
 
 from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
-from aicsfiles import FileManagementSystem 
-fms=FileManagementSystem.from_env('prod')
 import platform
 from pathlib import Path
+
+import argparse
 
 def compute_bf_colony_features(df, save_folder, align=True):
     '''
@@ -37,57 +37,41 @@ def compute_bf_colony_features(df, save_folder, align=True):
     saves feature files for each movie in the mentioned folder'''
 
 
-    for fms_id, df_fms in tqdm(df.groupby('fms_id')):
+    for movie_id, df_movie in tqdm(df.groupby('Movie Unique ID')):
     #importing raw image
-        print(f'FMS_id-{fms_id}')
+        print(f'Movie: {movie_id}')
         print('Getting raw data...')
-        file_fms_id=df_fms.fms_id.values[0]
-        record = list(fms.find(
-            annotations={"File Id":file_fms_id},
-            limit=1,
-        ))[0]
         
-        file_path=record.path
+        file_path=df_movie['Raw Converted File Download'].values[0]
         if platform.system()=='Windows':
             path_w=file_path.replace('/','\\')
-            img=AICSImage(repr(path_w)[1:-1])
+            img=BioImage(repr(path_w)[1:-1])
         else:
-            img=AICSImage(file_path)
+            img=BioImage(file_path)
     
         print('Getting colony mask....')
         if platform.system()!='Windows':
-            folder = df_fms.colony_mask_path.values[0]
-            folder = Path(folder).as_posix()
+            seg_path = df_movie['All Cells Mask File Download'].values[0]
+            seg_path = Path(seg_path).as_posix()
         else:
-            folder = df_fms.colony_mask_path.values[0]
-        print(folder)
-        t, mask_path=[],[]
-        for file in os.listdir(folder):
-            if 'tif' in file:
-                temp=file.split('=')[4]
-                frame=int(temp.split('_')[0])
-                t.append(frame)
-                if platform.system()!='Windows':
-                    mask_path.append(folder+'/'+file)
-                else:
-                    mask_path.append(folder+'\\'+file)
-        df_seg=pd.DataFrame(zip(t, mask_path), columns=['Timepoint','Mask_path'])
+            seg_path = df_movie['All Cells Mask File Download'].values[0]
+        
+        seg_img = BioImage(seg_path)
         
         print('Computing features....')
         df_cr=pd.DataFrame()
-        l=len(t)
+        l = df_movie['Image Size T'].values[0]
         if l>97:
             l=97
         for time in tqdm(np.arange(l)):
-            img_tl=img.get_image_dask_data("ZYX", C=1, T=time)
+            img_tl = img.get_image_dask_data("ZYX", C=1, T=time)
             img_raw = img_tl.compute() 
-            seg_path=df_seg['Mask_path'][df_seg.Timepoint==time].values[0]
                 
-            img_seg=AICSImage(seg_path).data.squeeze()
+            img_seg_tl = img_seg.get_image_dask_data("ZYX", T=time)
+            img_seg = img_seg_tl.compute()
             
             if align:
-                barcode = list(record.annotations['Plate Barcode'])[0]
-                transform = get_alignment_matrix(barcode)
+                transform = get_alignment_matrix(df_movie['Camera Alignment Matrix'].values[0])
                 transform = transform.inverse
             
             s_z=int(img_seg.shape[0])
@@ -110,6 +94,7 @@ def compute_bf_colony_features(df, save_folder, align=True):
                 total_int.append(total)
                 mean_int.append(intensity)
                 var_int.append(var)
+
             df_prop=pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z','area_pixels','mean_intensity','total_intensity','Variance_intensity'])
             z_proj=np.count_nonzero(img_seg, axis=0)
             m_z=np.ma.masked_equal(z_proj,0)
@@ -121,13 +106,20 @@ def compute_bf_colony_features(df, save_folder, align=True):
             df_prop['z_max']=np.ma.max(m_z)
             df_prop['Timepoint']=time
             df_cr=pd.concat([df_cr,df_prop])
-        df_cr['fms_id']=fms_id
-        df_cr['gene']=df_fms.gene.values[0]
-        df_cr['Condition']=df_fms.fms_condition.values[0]
-        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{fms_id}.csv')
+            
+        df_cr['Movie Unique ID']=movie_id
+        df_cr['gene']=df_movie.gene.values[0]
+        df_cr['Condition']=df_movie.fms_condition.values[0]
+        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{movie_id}.csv')
 
 
-
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_path', type=str, required=True)
+    parser.add_argument('--output_path', type=str, required=True)
+    
+    args = parser.parse_args()
+    compute_bf_colony_features(args.data_path, args.output_path)
 
 
 
