@@ -67,7 +67,7 @@ def compute_bf_colony_features(df, save_folder, align=True):
             img_tl = img.get_image_dask_data("ZYX", C=1, T=time)
             img_raw = img_tl.compute() 
                 
-            img_seg_tl = img_seg.get_image_dask_data("ZYX", T=time)
+            img_seg_tl = seg_img.get_image_dask_data("ZYX", T=time)
             img_seg = img_seg_tl.compute()
             
             if align:
