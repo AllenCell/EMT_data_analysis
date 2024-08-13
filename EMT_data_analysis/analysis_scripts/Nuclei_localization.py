@@ -46,6 +46,14 @@ def nuclei_localization(
     df = pd.read(manifest_path)
     df = df[df['Movie Unique ID'] == movie_id]
 
+    if df['Gene'].values[0] == 'HIST1H2BJ':
+        seg_path = df['H2B Nuclear Segmentation File Download'].values[0]
+    elif df['Gene'].values[0] == 'EOMES|TBR2':
+        seg_path = df['EOMES Nuclear Segmentation File Download'].values[0]
+    else:
+        raise ValueError(f"The move {movie_id} does not have EOMES or H2B segmentations")
+        
+
     segmentations = BioImage(df['CollagenIV Segmentation Probability File Download'].values[0])
     meshes = pv.load(df['CollagenIV Segmentation Mesh Folder'].values[0])
     
