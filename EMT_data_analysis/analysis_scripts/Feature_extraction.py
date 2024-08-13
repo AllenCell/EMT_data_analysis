@@ -88,14 +88,12 @@ def compute_bf_colony_features(df, save_folder, align=True):
                 intensity=np.mean(img_int[mask])
                 ar=np.count_nonzero(mask)
                 total=np.sum(img_int[mask])
-                var=np.var(img_int[mask])
 
                 area.append(ar)
                 total_int.append(total)
                 mean_int.append(intensity)
-                var_int.append(var)
 
-            df_prop=pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z','area_pixels','mean_intensity','total_intensity','Variance_intensity'])
+            df_prop=pd.DataFrame(zip(z,area,mean_int,total_int), columns=['Z plane','Area of all cells mask per Z (pixels)','Mean intensity per Z','Total intensity per Z'])
             z_proj=np.count_nonzero(img_seg, axis=0)
             m_z=np.ma.masked_equal(z_proj,0)
             z_max_proj = np.max(img_seg,axis=0)
@@ -103,13 +101,12 @@ def compute_bf_colony_features(df, save_folder, align=True):
             df_prop['MIP_area']=ar2
             df_prop['z_median']=np.ma.median(m_z)
             df_prop['z_mean']=np.ma.mean(m_z)
-            df_prop['z_max']=np.ma.max(m_z)
             df_prop['Timepoint']=time
             df_cr=pd.concat([df_cr,df_prop])
             
         df_cr['Movie Unique ID']=movie_id
-        df_cr['gene']=df_movie.gene.values[0]
-        df_cr['Condition']=df_movie.fms_condition.values[0]
+        df_cr['Gene']=df_movie.gene.values[0]
+        df_cr['Experimental Condition']=df_movie['Experimental Condition'].values[0]
         df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{movie_id}.csv')
 
 
