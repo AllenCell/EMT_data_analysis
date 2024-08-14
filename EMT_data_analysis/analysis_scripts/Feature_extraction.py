@@ -1,122 +1,110 @@
-######---------importing libraries--------#######
+import platform
 import numpy as np
 import pandas as pd
-import os
+from tqdm import tqdm
+from pathlib import Path
+from bioio import BioImage
 
 import warnings
 warnings.filterwarnings("ignore")
 
-from bioio import BioImage
-from tqdm import tqdm
+from EMT_data_analysis.tools import io, alignment
 
-from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix
+'''
+Expected columns from this code:
 
-#######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
-import platform
-from pathlib import Path
+'Z plane',
+'Area of all cells mask per Z (pixels)',
+'Mean intensity per Z',
+'Total intensity per Z',
+'Timepoint',
+'Movie Unique ID'
+'''
 
-import argparse
-
-def compute_bf_colony_features(df, save_folder, align=True):
+def compute_bf_colony_features(output_folder, align=True):
     '''
-    This function  computes area of the BF colony mask at every z position and also extracts corresponding intensity values from the fluorescence channel. It also adds other features from the BF colony mask.
+    Computes area of the bright field colony mask at every z position
+    and extracts corresponding intensity values from the fluorescence
+    channel. It also adds other features from the bright field colony
+    mask to the final dataframe that is saved at the end.
     Parameters
     ----------
-    df: DataFrame
-        Dataframe with colony mask paths for each movie
-
     save_folder: path
         Folder path where feature csv for each movie is stored
 
-    align_image: Bool
-        Flag to enable alignment of the image using the barcode of the movie
+    align: bool
+        Enable alignment of the image using the barcode of the movie
+    '''
 
-
-    Returns
-    -------
-    saves feature files for each movie in the mentioned folder'''
-
-
+    df = io.load_imaging_and_segmentation_data_dataset()
+    print(f"Dataset loaded. Shape: {df.shape}.")
+    import pdb; pdb.set_trace()
     for movie_id, df_movie in tqdm(df.groupby('Movie Unique ID')):
-    #importing raw image
-        print(f'Movie: {movie_id}')
-        print('Getting raw data...')
-        
-        file_path=df_movie['Raw Converted File Download'].values[0]
-        if platform.system()=='Windows':
-            path_w=file_path.replace('/','\\')
-            img=BioImage(repr(path_w)[1:-1])
-        else:
-            img=BioImage(file_path)
     
-        print('Getting colony mask....')
-        if platform.system()!='Windows':
-            seg_path = df_movie['All Cells Mask File Download'].values[0]
-            seg_path = Path(seg_path).as_posix()
-        else:
-            seg_path = df_movie['All Cells Mask File Download'].values[0]
+        print(f"Movie: {movie_id}")
         
-        seg_img = BioImage(seg_path)
+        print("Getting raw data...")
+        raw_path=df_movie["File Path"].values[0]
+        if platform.system() == "Windows":
+            raw_path = io.convert_to_windows_path(Path(raw_path))
+
+        raw_reader = BioImage(raw_path)
+    
+        print("Getting colony mask....")
+        seg_path = df_movie["All Cells Mask BFF path"].values[0]
+
+        if platform.system() == "Windows":
+           seg_path = io.convert_to_windows_path(Path(seg_path))
         
-        print('Computing features....')
-        df_cr=pd.DataFrame()
-        l = df_movie['Image Size T'].values[0]
-        if l>97:
-            l=97
-        for time in tqdm(np.arange(l)):
-            img_tl = img.get_image_dask_data("ZYX", C=1, T=time)
-            img_raw = img_tl.compute() 
+        seg_reader = BioImage(seg_path)
+        
+        print("Computing features....")
+
+        df_result = []
+        # We only process the first 48 hours (98 timepoints: 0-97)
+        max_timepoint = int(np.min([97, df_movie['Image Size T'].values[0]]))
+
+        for frame in tqdm(range(max_timepoint), total=max_timepoint):
+            raw_img = raw_reader.get_image_dask_data("ZYX", C=1, T=frame)
+            raw_img = raw_img.compute() 
                 
-            img_seg_tl = seg_img.get_image_dask_data("ZYX", T=time)
-            img_seg = img_seg_tl.compute()
-            
+            seg_img = seg_reader.get_image_dask_data("ZYX", T=frame)
+            seg_img = seg_img.compute()
+
             if align:
-                transform = get_alignment_matrix(df_movie['Camera Alignment Matrix'].values[0])
+                matrix_string = df_movie["Camera Alignment Matrix"].values[0]
+                matrix = alignment.parse_rotation_matrix_from_string(matrix_string)
+                transform = alignment.get_alignment_matrix(matrix)
                 transform = transform.inverse
             
-            s_z=int(img_seg.shape[0])
-            z,area,mean_int, total_int, var_int=[],[],[],[],[]
-            for i in np.arange(s_z):
-                z.append(i)
-                seg_z = img_seg[i]
+            for z, seg in enumerate(seg_img):
                 if align:
-                    seg_z = align_image(seg_z, transform)
-                
-                # select=np.where(seg_z, img_raw[i], 0 )
-                mask=np.bool_(seg_z)
-                img_int=img_raw[i]
-                intensity=np.mean(img_int[mask])
-                ar=np.count_nonzero(mask)
-                total=np.sum(img_int[mask])
+                    seg = alignment.align_image(seg, transform)
 
-                area.append(ar)
-                total_int.append(total)
-                mean_int.append(intensity)
+                mask = np.bool_(seg)
+                area = np.count_nonzero(mask)
+                mean_intensity = np.mean(raw_img[z][mask])
+                total_intensity = np.sum(raw_img[z][mask])
 
-            df_prop=pd.DataFrame(zip(z,area,mean_int,total_int), columns=['Z plane','Area of all cells mask per Z (pixels)','Mean intensity per Z','Total intensity per Z'])
-            z_proj=np.count_nonzero(img_seg, axis=0)
-            m_z=np.ma.masked_equal(z_proj,0)
-            z_max_proj = np.max(img_seg,axis=0)
-            ar2=np.count_nonzero(z_max_proj) 
-            df_prop['MIP_area']=ar2
-            df_prop['z_median']=np.ma.median(m_z)
-            df_prop['z_mean']=np.ma.mean(m_z)
-            df_prop['Timepoint']=time
-            df_cr=pd.concat([df_cr,df_prop])
-            
-        df_cr['Movie Unique ID']=movie_id
-        df_cr['Gene']=df_movie.gene.values[0]
-        df_cr['Experimental Condition']=df_movie['Experimental Condition'].values[0]
-        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{movie_id}.csv')
-
+                row = {
+                    "Z plane": z,
+                    "Timepoint": frame,
+                    "Movie Unique ID": movie_id,
+                    "Mean intensity per Z": mean_intensity,
+                    "Total intensity per Z": total_intensity,
+                    "Area of all cells mask per Z (pixels)": area
+                }
+                df_result.append(row)
+                    
+        df_result = pd.DataFrame(df_result)
+        df_result["Gene"] = df_movie.Gene.values[0]
+        df_result["Experimental Condition"] = df_movie["Experimental Condition"].values[0]
+        df_result.to_csv(output_folder / f"Features_bf_colony_mask_{movie_id}.csv")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, required=True)
-    parser.add_argument('--output_path', type=str, required=True)
-    
-    args = parser.parse_args()
-    compute_bf_colony_features(args.data_path, args.output_path)
+
+    base_results_dir = io.setup_base_directory_name("feature_extraction")
+    compute_bf_colony_features(output_folder=base_results_dir)
 
 
 
