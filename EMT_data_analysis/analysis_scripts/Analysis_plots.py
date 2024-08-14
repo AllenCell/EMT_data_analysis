@@ -211,7 +211,6 @@ n_m=df_summary['Movie Unique ID'].nunique()
 df_summary=df_summary.sort_values('Condition order for plots')
 fig_mig=px.box(df_summary, x='Condition order for plots', y='Migration time (h)', color='Condition order for plots', color_discrete_map=color_map, points='all', template='simple_white',range_y=(15,40), width=800, height=600)
 fig_mig.update_layout(yaxis_title='Migration time (h)',font=dict(size=18))
-fig_mig.show()
 fig_mig.write_image(rf'{migdir}/Migration_box_plot_n{n_m}.pdf', scale=2 )
 
 # ####-----statitsitcal analysis of overall migriation timing between the conditions------
