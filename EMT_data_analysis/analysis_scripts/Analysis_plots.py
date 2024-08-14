@@ -1,5 +1,5 @@
 #%%[markdown]
-## Script to generate plots in the manuscript and save them in the Figure directory
+## Script to generate plots and perform statistical analysis in the manuscript and save them in the Figure directory
 #### Importing the required libraries
 
 import numpy as np
