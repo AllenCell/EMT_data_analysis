@@ -1,5 +1,6 @@
 #%%[markdown]
-## importing the required libraries
+###### This script adds metrics to generate the entire feature manifest used for analysis_plot.py file. It requires the input of the folder path where the files from feature_extraction.py file are stored.
+###### importing the required libraries
 
 import numpy as np
 import pandas as pd
@@ -271,7 +272,7 @@ def compute_metrics(Imaging_and_segmentation_data , all_cells_feature_csvs_folde
 
 
 # %% [markdown]
-## running the pipeline to generate and save feature manifest
+##### running the pipeline to generate and save feature manifest
 Imaging_and_segmentation_data=pd.read_csv(r'/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/Dataset_1_V20_V8_SM.csv')
 all_cells_feature_csvs_folder=r'/allen/aics/assay-dev/users/Filip/Data/EMT-colony-mask-features'
 final_feature_folder=r'/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests'
