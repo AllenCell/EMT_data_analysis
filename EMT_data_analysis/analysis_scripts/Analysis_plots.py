@@ -1,5 +1,7 @@
 #%%[markdown]
 ## Script to generate plots and perform statistical analysis in the manuscript and save them in the Figure directory
+####### input_link_1: (Feature manifest):/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/Feature_manifest_V8_for_upload.csv
+####### input_link2 (inside-outside nuclei classification):/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/inside_outside_compiled_manifest_release.csv
 #### Importing the required libraries
 
 import numpy as np
@@ -18,7 +20,7 @@ import scikit_posthocs as sp
 
 # %% [markdown]
 #### -------------- importing the feature manifest - ask user to input the path to feature manifest---------------
-##### currently- /allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/Feature_manifest_V8_for_upload.csv
+
 
 file_path = input('Enter the file path to feature manifest: ')
 
@@ -164,7 +166,7 @@ def run_statistics (x,y,z):
         print('No significant differnce between the distributions, no posthoc needed')
 #%%[markdown]
 #### ---------- Plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time----------
-
+print('Generating plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time (Fig.5 C, D , E)')
 ##### Creating figure directory for migration timing plots (Fig.5 C, D , E)
 migdir=os.path.join(figdir, r'Migration_time_plots')
 if not os.path.exists(migdir):
@@ -221,7 +223,7 @@ z_mig=df_summary['Migration time (h)'][df_summary['Experimental Condition']=='3D
 run_statistics(x_mig,y_mig,z_mig)
 
 ####----------Box plots for migration timing for each gene in the dataset and fo each condition within that gene (Fig.S3)
-
+print('Generating Box plots for migration timing for each gene in the dataset and fo each condition within that gene (Fig.S3)')
 df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], ['HIST1H2BJ','SOX2','EOMES','CDH1','TJP1'])
 df_summary=df_summary.sort_values(['gene_m','Condition order for plots'])
 fig_mig_g=px.box(df_summary, y='Migration time (h)', x='gene_m', color='Condition order for plots', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=1800, height=600)
@@ -240,6 +242,8 @@ for g, df_g in df_summary.groupby('Gene'):
 
 # %% [markdown]
 #### ---------- Plotting mean intensity plots for each gene - Fig.6B, Fig. 6F and Fig 6 J----------
+print('Generating plots for  mean intensity plots for each gene - Fig.6B, Fig. 6F and Fig 6 J')
+
 intdir=os.path.join(figdir, r'Intensity_plots')
 if not os.path.exists(intdir):
     os.makedirs(intdir)
@@ -298,6 +302,8 @@ for g, d_g in df_norm.groupby('Gene'):
 # %%[markdown]
 #### ------------ Plotting and saving the examples for Time of max EOMES expression (h), Time of inflection of E-cad expression (h) and Time of half-maximal SOX2 expression (h), for each condition respectively---------
 #### Fig.6C., Fig.6 G, Fig.6 K.
+print('generating plots for Fig.6C., Fig.6 G, Fig.6 K  ')
+
 ##### creating directory to save the example plots
 exdir=os.path.join(figdir, r'Example_metric_plots')
 if not os.path.exists(exdir):
@@ -339,6 +345,8 @@ plot_examples(df_int,id_plf=SOX_id_plf, id_2d=SOX_id_2d, id_3d=SOX_id_3d, gene="
 # %% [markdown]
 #### -------- Connected box and line plots to show pair-wise relationship between gene metric (Time of max EOMES expression (h), Time of inflection of E-cad expression (h) and Time of half-maximal SOX2 expression (h)) and respective migration time ---------
 ###### Fig.6 D,H, L
+
+print('Generating plots for connected scatter and box plots- Fig.6 D,H, L')
 ###### Defining the function to plot the connected pair-wise box plots
 def plot_connected_box_plot(df_summary, Gene, column_1_name, column_2_name, ylim=[10,40], ylabel='Time (hr)'):
     '''
@@ -415,7 +423,7 @@ fig3.savefig(rf'{connecteddir}/Connected_box_plot_Sox_time_of_half_maximal_vs_Mi
 # %% [markdown]
 #####------- Plotting box plots for Supplementary figure S5 a. timing of expression change relative to time of induction of EMT (time 0), b. Difference between gene metrics and migration time,
 ##### c. timing of expression change normalized between the time of induction and migration (0-time of EMT induction and 1- time of migration)
-
+print('Generating plots for supplementary Fig.5. Timing of expression change')
 ##### Creating directory for timing of expression
 expressiondir=os.path.join(figdir, r'Timing_of_expression')
 if not os.path.exists(expressiondir):
@@ -469,7 +477,7 @@ fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
 fig_difference.write_image(rf'{expressiondir}/Timing_of_expression_change_divided_by_migration_time_FigS5c.pdf', scale=2 )
 
 #%%
-print('Statistical comparison for gene metric:')
+print('.......Statistical comparison for gene metric:')
 for g, df_g in df_comb.groupby('Gene'):
     print(f'gene={g}')
     x=df_g['gene_metric'][df_g['Experimental Condition']=='2D PLF colony EMT']
@@ -483,7 +491,7 @@ for g, df_g in df_comb.groupby('Gene'):
 
 # %% [markdown]
 ####-----Plotting heatmaps to show ZO1 (TJP1) intensity changes in Z plane over time (Fig.7 and Fig. S6)
-
+print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
 ##### Creating directory to save ZO1 histograms
 ZO1dir=os.path.join(figdir, r'ZO1_heatmaps')
 if not os.path.exists(ZO1dir):
@@ -551,21 +559,18 @@ Intensity_over_z(df_zo_examples, directory=ZO1dir)
 
 
 # %%[markdown]
-####----Plotting inside-outside classification results- Fraction of nuclei outside the basement membrane- Fig. % G, H I ------
-
+####----Plotting inside-outside classification results- Fraction of nuclei outside the basement membrane- Fig. 5 G, H I ------
+print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
 inside_outside_file_path = input('Enter the file path to inside_outside_manifest: ')
 
 # e.g. C:\Users\abc\Desktop\example.csv or /home/abc/Desktop/example.csv
-#for this:/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/Migration_timing_through_mesh_extracted_features.csv
 
 
 if os.path.exists(inside_outside_file_path):
     print('Loading the file')
     df_io=pd.read_csv(inside_outside_file_path)
-    n_movies_io=df_io['Movie Unique ID'].nunique()
-    print(f'Total number of movies in the inside-outside manifest={n_movies_io}')
-
+   
 else:
     raise FileNotFoundError('No such file or directory.')
 
@@ -577,15 +582,9 @@ df_info=df_summary[['Condition order for plots','Movie Unique ID','Gene','Migrat
 ## merging with feature manifest
 dfio_merge=pd.merge(df_io, df_info, on='Movie Unique ID')
 
-###filtering the nuclei positions to only include the ones above the Z bottom plane
-#%%
-'''dfio_z=pd.DataFrame()
-for id, df_id in dfio_merge.groupby('Movie Unique ID'):
-    bottom_z=df_id['Bottom Z plane'].unique()[0]
-    df_id_f=df_id[df_id['Z']>=(bottom_z-2)]
-    dfio_z=pd.concat([dfio_z,df_id_f])'''
+n_movies_io=dfio_merge['Movie Unique ID'].nunique()
+print(f'Total number of movies for which plots are generated={n_movies_io}')
 
-#%%
 
 ##grouping the data and getting the fraction of 'True' values in 'Inside' column to get fraction of nuclei inside the basement membrane for each movie
 dfio_grouped=dfio_merge.groupby(['Condition order for plots','Gene','Movie Unique ID','Time hr']).agg({'Inside':'mean', 'Migration time (h)':'first'}).reset_index()
