@@ -10,3 +10,8 @@ python -m venv venv
 source venv/bin/activate
 pip install -e .
 ```
+
+# Usage
+```
+python TODO
+```

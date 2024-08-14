@@ -162,5 +162,4 @@ cython_debug/
 #.idea/
 
 # pdm
-pdm.lock
 pdm.toml
