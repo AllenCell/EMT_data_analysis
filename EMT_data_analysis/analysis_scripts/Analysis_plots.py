@@ -1,9 +1,6 @@
-import os
+import warnings
 import numpy as np
 import pandas as pd
-import warnings
-warnings.filterwarnings("ignore")
-
 import seaborn as sns
 import plotly.express as px
 import matplotlib.pyplot as plt
@@ -11,16 +8,19 @@ from scipy.signal import savgol_filter
 from EMT_data_analysis.tools import io, const
 from EMT_data_analysis.analysis_scripts import plot_tools
 
+warnings.filterwarnings("ignore")
+
 figs_dir = io.setup_base_directory_name("figures")
 
 df = io.load_image_analysis_extracted_features(load_from_aws=True)
 
-df_f=df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
+df_f = df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
 df_f['Gene']=df_f['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else x)
 # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
 time_interval=int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
 df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
-#for plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
+
+# For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
 df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if 'PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
 
 n_filtered_movies=df_f['Movie ID'].nunique()
@@ -28,9 +28,9 @@ print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
 
 print('Generating plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time (Fig.5 C, D , E)')
 
-df_a=df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration time (h)':'first'}).reset_index()
-n_a=df_a['Movie ID'].nunique()
-fig,ax=plt.subplots(1,1)
+df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration time (h)':'first'}).reset_index()
+n_a = df_a['Movie ID'].nunique()
+fig,ax = plt.subplots(1,1)
 sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
 plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
 plt.xlabel('Time (hr)', fontsize=14)
@@ -51,7 +51,7 @@ plot_tools.plot_examples(
     figs_dir = figs_dir)
 
 df_f = df_f.sort_values('Timepoint (h)')
- # summarizing the dataframe/manifest to have one line/metric per movie
+# Summarizing the dataframe/manifest to have one line/metric per movie
 df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
 
 n_m = df_summary['Movie ID'].nunique()
@@ -86,14 +86,14 @@ for g, df_g in df_summary.groupby('Gene'):
 
 print('Generating plots for  mean intensity plots for each gene - Fig.6B, Fig. 6F and Fig 6 J')
 
-# filtering to 10 z-slices over which the mean intensity is calculated
+# Filtering to 10 z-slices over which the mean intensity is calculated
 df_z = df_f[(df_f['Normalized Z plane']>=0) & (df_f['Normalized Z plane']<10)]
 
-#Grouping by condition and gene and each movie to get mean itnensity over time for each movie
+# Grouping by condition and gene and each movie to get mean itnensity over time for each movie
 df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
 df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
 
-#Plotting mean intensity
+# Plotting mean intensity
 for g, d_g in df_int.groupby('Gene'):
     n = d_g['Movie ID'].nunique()
     
@@ -184,15 +184,15 @@ plot_tools.plot_examples(
     metric = 'Time of half-maximal SOX2 expression (h)')
 
 print('Generating plots for connected scatter and box plots- Fig.6 D,H, L')
-##### Plotting pair-wise connected plots for Time of max EOMES expression (h) and Migration time for EOMES (Fig.6D)
+# Plotting pair-wise connected plots for Time of max EOMES expression (h) and Migration time for EOMES (Fig.6D)
 fig1,ax1 = plot_tools.plot_connected_box_plot(df_summary, 'EOMES', 'Time of max EOMES expression (h)','Migration time (h)')
 fig1.savefig(rf'{figs_dir}/Connected_box_plot_Eomes_time_at_max_EOMES_expression_vs_Migration_hr.pdf', dpi=600)
 
-##### Plotting pair-wise connected plots for Time of inflection of E-cad expression (h) and Migration time for E-Cad (Fig.6H)
+# Plotting pair-wise connected plots for Time of inflection of E-cad expression (h) and Migration time for E-Cad (Fig.6H)
 fig2,ax2 = plot_tools.plot_connected_box_plot(df_summary, 'CDH1','Time of inflection of E-cad expression (h)','Migration time (h)')
 fig2.savefig(rf'{figs_dir}/Connected_box_plot_Ecad_time_of_inflection_E_Cad_expression_Migration_hr.pdf', dpi=600)
 
-##### Plotting pair-wise connected plots for Time of half-maximal SOX2 expression (h) and Migration time for SOX2 (Fig.6L)
+# Plotting pair-wise connected plots for Time of half-maximal SOX2 expression (h) and Migration time for SOX2 (Fig.6L)
 fig3,ax3 = plot_tools.plot_connected_box_plot(df_summary, 'SOX2','Time of half-maximal SOX2 expression (h)','Migration time (h)')
 fig3.savefig(rf'{figs_dir}/Connected_box_plot_Sox_time_of_half_maximal_vs_Migration_hr.pdf', dpi=600)
 
@@ -204,7 +204,7 @@ migration (0-time of EMT induction and 1- time of migration)
 ''' 
 print('Generating plots for supplementary Fig.5. Timing of expression change')
 
-## Compiling data for the plots
+# Compiling data for the plots
 df_eomes = df_summary[df_summary.Gene=='EOMES']
 df_eomes['Difference']=df_eomes['Time of max EOMES expression (h)']-df_eomes['Migration time (h)']
 df_eomes['Normalized_metric']=df_eomes['Time of max EOMES expression (h)']/df_eomes['Migration time (h)']

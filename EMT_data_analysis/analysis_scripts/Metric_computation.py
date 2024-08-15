@@ -4,17 +4,16 @@ This script adds metrics to generate the entire feature manifest used
 for analysis_plot.py file. It requires the input of the folder path where
 the files from feature_extraction.py file are stored.
 '''
+import warnings
 import numpy as np
 import pandas as pd
 import scipy.ndimage
 from tqdm import tqdm
 from bioio import BioImage
 from scipy.signal import savgol_filter
-
-import warnings
-warnings.filterwarnings("ignore")
-
 from EMT_data_analysis.tools import io
+
+warnings.filterwarnings("ignore")
 
 # %% [markdown]
 def add_bottom_z(df):

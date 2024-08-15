@@ -1,14 +1,13 @@
+import warnings
 import platform
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
 from bioio import BioImage
-
-import warnings
-warnings.filterwarnings("ignore")
-
 from EMT_data_analysis.tools import io, alignment
+
+warnings.filterwarnings("ignore")
 
 def compute_bf_colony_features_all_movies(output_folder, align=True):
     '''
