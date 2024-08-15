@@ -10,17 +10,6 @@ warnings.filterwarnings("ignore")
 
 from EMT_data_analysis.tools import io, alignment
 
-'''
-Expected columns from this code:
-
-'Z plane',
-'Area of all cells mask per Z (pixels)',
-'Mean intensity per Z',
-'Total intensity per Z',
-'Timepoint',
-'Movie Unique ID'
-'''
-
 def compute_bf_colony_features_all_movies(output_folder, align=True):
     '''
     Computes area of the bright field colony mask at every z position
@@ -39,7 +28,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
     df = io.load_imaging_and_segmentation_dataset()
     print(f"Dataset loaded. Shape: {df.shape}.")
 
-    for movie_id, df_movie in tqdm(df.groupby('Movie Unique ID')):
+    for movie_id, df_movie in tqdm(df.groupby('Movie ID')):
     
         print(f"Movie: {movie_id}")
         
@@ -89,7 +78,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
                 row = {
                     "Z plane": z,
                     "Timepoint": frame,
-                    "Movie Unique ID": movie_id,
+                    "Movie ID": movie_id,
                     "Mean intensity per Z": mean_intensity,
                     "Total intensity per Z": total_intensity,
                     "Area of all cells mask per Z (pixels)": area

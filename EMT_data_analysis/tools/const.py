@@ -1,0 +1,1 @@
+COLOR_MAP = {'a.2D PLF EMT':"darkmagenta",'b.2D EMT':"deepskyblue", 'c.3D EMT':"orange"}

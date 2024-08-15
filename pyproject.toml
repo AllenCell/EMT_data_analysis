@@ -19,7 +19,8 @@ dependencies = [
     "trimesh>=4.1.0",
     "point-cloud-utils==0.30.4",
     "pyvista>=0.43.10,<0.44",
-    "scikit_posthocs>=0.9.0"
+    "scikit_posthocs>=0.9.0",
+    "kaleido>=0.2.1"
 ]
 requires-python = ">=3.11"
 readme = "README.md"

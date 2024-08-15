@@ -14,21 +14,22 @@ pip install -e .
 # How to run:
 
 ## 1 - Feature extraction
+
+Run: `python Feature_extraction.py`
+
 This will generate one CSV for each movie with the extracted features. CSVs are stored in the folder `EMT_data_analysis/results/feature_extraction`
 
 ## 2 - Metric computation
-This will generate a single CSV (`Image_analysis_extracted_features.csv``) containing information about all the movies to be used for analysis. The manifest is storeed it in the folder 'EMT_data_analysis/results/metric_computation'
+
+Run: `python Metric_computation.py`
+
+This will generate a single CSV containing information about all the movies to be used for analysis. The manifest is saved as `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`.
 
 ## 3 - Nuclei localization
-This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. This csv (Migration_timing_trough_mesh_extracted_feature.csv) is used for generation of plots.
+
+TBD
+
+This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
 
 ## 4 - Analysis Plots
-This will generate the plots in the manuscript and store them in Figures_manuscript folder.
-This workflow takes two input manifests:
-    1. Output from Metric computation - Image_analysis_extracted_features.csv
-    2. Output from Nuclei localization - Migration_timing_through_mesh_extracted_features.csv
-There are two ways to run this workflow:
-1. Run the entire workflow from steps 1 to 3 to get the required manifests.
-2. Access the pre-generated csvs located in publically available s3 storage 
-    Links are here: 1. 
-                    2.
+This will generate the plots in the manuscript and store them in `results/figures` folder. The manifests used as inputs in this workflow are automatically uploaded from AWS by default. The user can opt to also use local version of these manifests if they produced locally by running the scripts `Feature_extraction.py`, `Metric_computation.py` and `Nuclei_localization.py`. To use local version of the manifests, please set `load_from_aws=False` everywhere in the script `Analysis_plots.py`.

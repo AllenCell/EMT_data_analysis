@@ -33,9 +33,9 @@ def add_bottom_z(df):
         Returns the input DataFrame with'Normalized Z plane' and 'Bottom Z plane' columns"""
     
     df['Area of all cells mask per Z (square micrometer)']=df['Area of all cells mask per Z (pixels)']*(0.271*0.271)
-    area_time=df.groupby(['Movie Unique ID','Z plane'])['Area of all cells mask per Z (square micrometer)'].agg('sum').reset_index()
+    area_time=df.groupby(['Movie ID','Z plane'])['Area of all cells mask per Z (square micrometer)'].agg('sum').reset_index()
     file_id, z_bottom=[],[]
-    for id, df_id in tqdm(area_time.groupby('Movie Unique ID')):
+    for id, df_id in tqdm(area_time.groupby('Movie ID')):
         file_id.append(id)
         df_id=df_id.reset_index()
     
@@ -48,9 +48,9 @@ def add_bottom_z(df):
 
         z_bottom.append(zo)
 
-    df_bottom_z=pd.DataFrame(zip(file_id,z_bottom), columns=['Movie Unique ID','Bottom Z plane'])
+    df_bottom_z=pd.DataFrame(zip(file_id,z_bottom), columns=['Movie ID','Bottom Z plane'])
 
-    df_normalized_z=pd.merge(df,df_bottom_z, on=['Movie Unique ID'])
+    df_normalized_z=pd.merge(df,df_bottom_z, on=['Movie ID'])
 
     df_normalized_z['Normalized Z plane']=df_normalized_z.apply(lambda x: x['Z plane']-x['Bottom Z plane'], axis=1)
 
@@ -73,7 +73,7 @@ def add_bottom_mip_migration(df_merged):
         '''
      
     df_mm=pd.DataFrame()
-    for id, df_id in tqdm(df_merged.groupby('Movie Unique ID')):
+    for id, df_id in tqdm(df_merged.groupby('Movie ID')):
         ar_v,tp=[],[]
         z_bottom=df_id['Bottom Z plane'].values[0]
 
@@ -103,8 +103,8 @@ def add_bottom_mip_migration(df_merged):
         x_p=df_area['Timepoint'][index_infl]
         df_area['Migration time (h)']=x_p*(30/60)
         df_area['Area at the glass(square micrometer)']=df_area['Area at the glass (pixels)']*(0.271*0.271)
-        df_area['Movie Unique ID']=id
-        df_merged_area=pd.merge(df_id,df_area, on=['Movie Unique ID'])
+        df_area['Movie ID']=id
+        df_merged_area=pd.merge(df_id,df_area, on=['Movie ID'])
         df_mm=pd.concat([df_mm,df_merged_area])
 
     return df_mm
@@ -130,13 +130,13 @@ def add_gene_metrics(df_features):
     df_z=df_features[(df_features['Normalized Z plane']>=0) & (df_features['Normalized Z plane']<10)]
 
     #Grouping by condition and gene and each movie to get mean itnensity over time for each movie
-    df_int=df_z.groupby(['Experimental Condition','Gene','Movie Unique ID','Timepoint']).agg({'Total intensity per Z':'sum','Area at the glass (pixels)':'sum'}).reset_index()
+    df_int=df_z.groupby(['Experimental Condition','Gene','Movie ID','Timepoint']).agg({'Total intensity per Z':'sum','Area at the glass (pixels)':'sum'}).reset_index()
     df_int['mean_intensity']=df_int['Total intensity per Z']/df_int['Area at the glass (pixels)']
 
     ######--computing Time of max EOMES expression ------ #####
     df_eomes=df_int[df_int.Gene=='EOMES|TBR2']
     Movie_ids_eomes, time_max_eomes=[],[]
-    for id, df_id in df_eomes.groupby('Movie Unique ID'):
+    for id, df_id in df_eomes.groupby('Movie ID'):
         df_id=df_id.sort_values('Timepoint')
         #smoothing the mean intensity curve
         df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
@@ -144,13 +144,13 @@ def add_gene_metrics(df_features):
         t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
         Movie_ids_eomes.append(id)
         time_max_eomes.append(t_max*(30/60))
-    df_eomes_metrics=pd.DataFrame(zip(Movie_ids_eomes, time_max_eomes), columns=['Movie Unique ID','Time of max EOMES expression (h)'])
+    df_eomes_metrics=pd.DataFrame(zip(Movie_ids_eomes, time_max_eomes), columns=['Movie ID','Time of max EOMES expression (h)'])
 
     ######--computing Time of inflection of E-cad expression ------ #####
 
     df_cdh=df_int[df_int.Gene=='CDH1']
     Movie_ids_cdh, time_inflection_cdh=[],[]
-    for id, df_id in df_cdh.groupby('Movie Unique ID'):
+    for id, df_id in df_cdh.groupby('Movie ID'):
         df_id=df_id.sort_values('Timepoint')
          #smoothing and getting second derivative of the mean intensity curve
         df_id['dy2']=savgol_filter(df_id['mean_intensity'].values,polyorder=2, window_length=40, deriv=2)
@@ -159,22 +159,22 @@ def add_gene_metrics(df_features):
         x_p=df_id['Timepoint'][index_infl]
         time_inflection_cdh.append(x_p*(30/60))
         Movie_ids_cdh.append(id)
-    df_cdh_metrics=pd.DataFrame(zip(Movie_ids_cdh,time_inflection_cdh), columns=['Movie Unique ID','Time of inflection of E-cad expression (h)'])
+    df_cdh_metrics=pd.DataFrame(zip(Movie_ids_cdh,time_inflection_cdh), columns=['Movie ID','Time of inflection of E-cad expression (h)'])
 
     ######--computing Time of half-maximal SOX2 expression ------ #####
     df_sox=df_int[df_int.Gene=='SOX2']
     Movie_ids_sox, time_half_maximal_sox=[],[]
-    for id, df_id in df_sox.groupby('Movie Unique ID'):
+    for id, df_id in df_sox.groupby('Movie ID'):
         df_id=df_id.sort_values('Timepoint')
         df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
         int_50=(max(df_id.int_smooth)+min(df_id.int_smooth))/2
         t_50=min(df_id['Timepoint'][(df_id.int_smooth<=int_50)])
         Movie_ids_sox.append(id)
         time_half_maximal_sox.append(t_50)
-    df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Movie Unique ID','Time of half-maximal SOX2 expression (h)'])
+    df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Movie ID','Time of half-maximal SOX2 expression (h)'])
 
     #merging eomes metrics with feature manifest
-    df_features_addons=pd.merge(df_features, df_eomes_metrics, on=['Movie Unique ID'], how='left').merge(df_cdh_metrics, on=['Movie Unique ID'], how='left').merge(df_sox_metrics, on=['Movie Unique ID'], how='left')
+    df_features_addons=pd.merge(df_features, df_eomes_metrics, on=['Movie ID'], how='left').merge(df_cdh_metrics, on=['Movie ID'], how='left').merge(df_sox_metrics, on=['Movie ID'], how='left')
 
     return df_features_addons
 
@@ -206,21 +206,21 @@ def compute_metrics(output_folder):
     df_all_z=add_bottom_z(df)
 
     print('merging the bottom z information with the colony mask path csv')
-    df_z = df_all_z.groupby('Movie Unique ID')['Bottom Z plane'].agg('first').reset_index()
+    df_z = df_all_z.groupby('Movie ID')['Bottom Z plane'].agg('first').reset_index()
     Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset()
-    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Movie Unique ID'])
+    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Movie ID'])
 
     print('computing area at the glass (bottom 2 z MIP) and migration time')
     df_mm=add_bottom_mip_migration(df_merged)
 
     print('merging everything into a single feature manifest')
-    df_features=pd.merge(df_all_z,df_mm, on=['Movie Unique ID','Timepoint'], suffixes=("","_remove"))
+    df_features=pd.merge(df_all_z,df_mm, on=['Movie ID','Timepoint'], suffixes=("","_remove"))
     df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
 
     print('adding gene specific metrics...')
     df_features_addons=add_gene_metrics(df_features)
     #only including the columns of interest
-    df_features_final=df_features_addons[['Movie Unique ID', 'Experimental Condition', 'Gene',
+    df_features_final=df_features_addons[['Movie ID', 'Experimental Condition', 'Gene',
        'Single Colony Or Lumenoid At Time of Migration',
        'Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration',
        'Timelapse Interval', 'Timepoint', 'Z plane',
