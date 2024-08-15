@@ -1,50 +1,26 @@
 #%%[markdown]
-###### This script adds metrics to generate the entire feature manifest used for analysis_plot.py file. It requires the input of the folder path where the files from feature_extraction.py file are stored.
-###### importing the required libraries
-
+'''
+This script adds metrics to generate the entire feature manifest used
+for analysis_plot.py file. It requires the input of the folder path where
+the files from feature_extraction.py file are stored.
+'''
 import numpy as np
 import pandas as pd
-import os
+import scipy.ndimage
+from tqdm import tqdm
+from bioio import BioImage
+from scipy.signal import savgol_filter
 
 import warnings
 warnings.filterwarnings("ignore")
 
-import scipy.ndimage
-from scipy.signal import savgol_filter
-from bioio import BioImage
-import bioio_ome_zarr
-from tqdm import tqdm
+from EMT_data_analysis.tools import io
 
 # %% [markdown]
-## Defining the required functions
-
-
-
-def import_folder(folder_path):
-    """
-     This function compiles all the intensity metric csvs into a single manifest.
-      Parameters
-    ----------
-    folder_path: Path
-        Path to the folder where all the intensity metric csvs have been saved using the feature_extraction.py script
-
-    Returns
-    -------
-    df: DataFrame
-        Returns the compiled dataframe with area and intensity values per z extracted from all-cells masks """
-
-    df=pd.DataFrame() 
-    for file in os.listdir(folder_path):
-        f1=pd.read_csv(folder_path+'/'+file)
-        df=pd.concat([df,f1])
-    return df
-
-
-
-######----adding normalized Z to get the Z plane corresponding to the glass-------#####
 def add_bottom_z(df):
     """
-    This function adds bottom Z - Zplane corresponding to the glass- defined from the sum of area over all time points vs Z
+    This function adds bottom Z - Zplane corresponding to the glass - defined
+    from the sum of area over all time points vs Z
     
     Parameters
     ----------
@@ -70,8 +46,8 @@ def add_bottom_z(df):
         
         zo=df_id['Z plane'][idx_max].values[0]+1
 
-        
         z_bottom.append(zo)
+
     df_bottom_z=pd.DataFrame(zip(file_id,z_bottom), columns=['Movie Unique ID','Bottom Z plane'])
 
     df_normalized_z=pd.merge(df,df_bottom_z, on=['Movie Unique ID'])
@@ -79,9 +55,6 @@ def add_bottom_z(df):
     df_normalized_z['Normalized Z plane']=df_normalized_z.apply(lambda x: x['Z plane']-x['Bottom Z plane'], axis=1)
 
     return df_normalized_z
-
-
-
 
 
 def add_bottom_mip_migration(df_merged):
@@ -104,7 +77,7 @@ def add_bottom_mip_migration(df_merged):
         ar_v,tp=[],[]
         z_bottom=df_id['Bottom Z plane'].values[0]
 
-        seg_path = df_id['s3 All Cells Mask BFF path'].values[0]
+        seg_path = df_id['All Cells Mask BFF path'].values[0]
 
         img_seg = BioImage(seg_path)
         l = df_id['Image Size T'].values[0]
@@ -136,8 +109,6 @@ def add_bottom_mip_migration(df_merged):
 
     return df_mm
     
-
-
 
 def add_gene_metrics(df_features):
     '''
@@ -207,11 +178,7 @@ def add_gene_metrics(df_features):
 
     return df_features_addons
 
-# %% [markdown]
-## master function to implement the pipeline
-
-
-def compute_metrics(Imaging_and_segmentation_data , all_cells_feature_csvs_folder, final_feature_folder):
+def compute_metrics(output_folder):
     '''
     This is a master function that implements every function and post processing to save a compiled final manifest to be used with analysis_plots.py
 
@@ -231,16 +198,17 @@ def compute_metrics(Imaging_and_segmentation_data , all_cells_feature_csvs_folde
         Returns and saves the final dataframe with all the required metrics fro analysis
     '''
     print('compiling intensity and z features into a single dataframe')
-    df=import_folder(all_cells_feature_csvs_folder)
 
+    df = io.load_bf_colony_features()
+    # df=import_folder(all_cells_feature_csvs_folder)
 
     print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)
 
     print('merging the bottom z information with the colony mask path csv')
-    df_z=df_all_z.groupby('Movie Unique ID')['Bottom Z plane'].agg('first').reset_index()
-    df_merged=pd.merge(df_z,Imaging_and_segmentation_data, how='left',on=['Movie Unique ID'])
-
+    df_z = df_all_z.groupby('Movie Unique ID')['Bottom Z plane'].agg('first').reset_index()
+    Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset()
+    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Movie Unique ID'])
 
     print('computing area at the glass (bottom 2 z MIP) and migration time')
     df_mm=add_bottom_mip_migration(df_merged)
@@ -265,16 +233,12 @@ def compute_metrics(Imaging_and_segmentation_data , all_cells_feature_csvs_folde
        'Time of inflection of E-cad expression (h)',
        'Time of half-maximal SOX2 expression (h)']]
 
-    n_movies=df_features_final['Movie Unique ID'].nunique()
     print('saving the final feature file')
-    df_features_final.to_csv(rf'{final_feature_folder}/Feature_manifest_number_of_movies_{n_movies}_test.csv')
-    return df_features_final
+    df_features_final.to_csv(output_folder / f"Image_analysis_extracted_features.csv")
 
 
 # %% [markdown]
-##### running the pipeline to generate and save feature manifest
-Imaging_and_segmentation_data=pd.read_csv(r'/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests/Dataset_1_V20_V8_SM.csv')
-all_cells_feature_csvs_folder=r'/allen/aics/assay-dev/users/Filip/Data/EMT-colony-mask-features'
-final_feature_folder=r'/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests'
+if __name__ == '__main__':
 
-df_features_all=compute_metrics(Imaging_and_segmentation_data , all_cells_feature_csvs_folder, final_feature_folder)
+    base_results_dir = io.setup_base_directory_name("metric_computation")
+    df_features_all = compute_metrics(output_folder=base_results_dir)
