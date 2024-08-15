@@ -76,7 +76,7 @@ def add_bottom_mip_migration(df_merged):
         ar_v,tp=[],[]
         z_bottom=df_id['Bottom Z plane'].values[0]
 
-        seg_path = df_id['All Cells Mask BFF path'].values[0]
+        seg_path = df_id['All Cells Mask URL'].values[0]
 
         img_seg = BioImage(seg_path)
         l = df_id['Image Size T'].values[0]
@@ -199,7 +199,6 @@ def compute_metrics(output_folder):
     print('compiling intensity and z features into a single dataframe')
 
     df = io.load_bf_colony_features()
-    # df=import_folder(all_cells_feature_csvs_folder)
 
     print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)

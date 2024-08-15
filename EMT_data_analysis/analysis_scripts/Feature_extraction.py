@@ -39,7 +39,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
         raw_reader = BioImage(raw_path)
     
         print("Getting colony mask....")
-        seg_path = df_movie["All Cells Mask BFF path"].values[0]
+        seg_path = df_movie["All Cells Mask URL"].values[0]
 
         if platform.system() == "Windows":
            seg_path = io.convert_to_windows_path(Path(seg_path))
