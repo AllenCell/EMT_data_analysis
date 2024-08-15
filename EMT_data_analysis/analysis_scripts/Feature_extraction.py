@@ -21,7 +21,7 @@ Expected columns from this code:
 'Movie Unique ID'
 '''
 
-def compute_bf_colony_features(output_folder, align=True):
+def compute_bf_colony_features_all_movies(output_folder, align=True):
     '''
     Computes area of the bright field colony mask at every z position
     and extracts corresponding intensity values from the fluorescence
@@ -36,9 +36,9 @@ def compute_bf_colony_features(output_folder, align=True):
         Enable alignment of the image using the barcode of the movie
     '''
 
-    df = io.load_imaging_and_segmentation_data_dataset()
+    df = io.load_imaging_and_segmentation_dataset()
     print(f"Dataset loaded. Shape: {df.shape}.")
-    import pdb; pdb.set_trace()
+
     for movie_id, df_movie in tqdm(df.groupby('Movie Unique ID')):
     
         print(f"Movie: {movie_id}")
@@ -61,8 +61,8 @@ def compute_bf_colony_features(output_folder, align=True):
         print("Computing features....")
 
         df_result = []
-        # We only process the first 48 hours (98 timepoints: 0-97)
-        max_timepoint = int(np.min([97, df_movie['Image Size T'].values[0]]))
+        # We only process the first 48 hours (98 timepoints)
+        max_timepoint = int(np.min([98, df_movie['Image Size T'].values[0]]))
 
         for frame in tqdm(range(max_timepoint), total=max_timepoint):
             raw_img = raw_reader.get_image_dask_data("ZYX", C=1, T=frame)
@@ -104,7 +104,7 @@ def compute_bf_colony_features(output_folder, align=True):
 if __name__ == '__main__':
 
     base_results_dir = io.setup_base_directory_name("feature_extraction")
-    compute_bf_colony_features(output_folder=base_results_dir)
+    compute_bf_colony_features_all_movies(output_folder=base_results_dir)
 
 
 
