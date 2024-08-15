@@ -11,7 +11,7 @@ def load_imaging_and_segmentation_dataset():
     return df
 
 def get_results_directory_name():
-    base_results_dir = Path(__file__).parent.parent.parent / "results"
+    base_results_dir = Path(__file__).parent.parent / "results"
     return base_results_dir
 
 def setup_base_directory_name(name: str):
