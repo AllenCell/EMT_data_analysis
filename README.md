@@ -32,4 +32,7 @@ TBD
 This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
 
 ## 4 - Analysis Plots
+
+Run: `python Analysis_plots.py`
+
 This will generate the plots in the manuscript and store them in `results/figures` folder. The manifests used as inputs in this workflow are automatically uploaded from AWS by default. The user can opt to also use local version of these manifests if they produced locally by running the scripts `Feature_extraction.py`, `Metric_computation.py` and `Nuclei_localization.py`. To use local version of the manifests, please set `load_from_aws=False` everywhere in the script `Analysis_plots.py`.
