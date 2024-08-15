@@ -10,6 +10,7 @@ def load_imaging_and_segmentation_dataset():
     n_movies = df['Movie ID'].nunique()
     print(f'Total number of movies in the dataset: {n_movies}')
     return df
+
 def load_image_analysis_extracted_features(load_from_aws: bool = True):
     path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv"
     if not load_from_aws:
