@@ -6,10 +6,12 @@ authors = [
     {email = "cells@alleninstitute.org"},
 ]
 dependencies = [
-    "numpy>=2.0.0",
+    "numpy<=1.26.4",
     "pandas>=2.0.0",
     "scipy>=1.13.1",
-    "aicsimageio>=4.14.0",
+    "bioio>=1.0.3",
+    "bioio-ome-tiff>=1.0.0",
+    "bioio-ome-zarr>=1.0.1",
     "tqdm>=4.66.4",
     "matplotlib>=3.9.1",
     "seaborn>=0.13.2",
@@ -18,13 +20,13 @@ dependencies = [
     "point-cloud-utils==0.30.4",
     "pyvista>=0.43.10,<0.44",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.optional-dependencies]
 internal = [
-    "aicsfiles>=5.1",
+
 ]
 
 [tool.pdm]
