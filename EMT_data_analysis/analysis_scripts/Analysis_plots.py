@@ -108,28 +108,6 @@ for g, d_g in df_int.groupby('Gene'):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(fr'{figs_dir}/Mean_intensity_plot_{g}_n{n}_mean_line.pdf', dpi=600, transparent=True) 
 
-df_norm = pd.DataFrame()
-for id, df_id in df_int.groupby('Movie ID'):
-    df_id=df_id.sort_values('Timepoint (h)')
-    int_min=df_id['Mean Intensity'].min()
-    int_max=df_id['Mean Intensity'].max()
-    df_id['Normalized intensity']=(df_id['Mean Intensity']-int_min)/(int_max-int_min)
-    df_norm=pd.concat([df_norm,df_id])
-
-for g, d_g in df_norm.groupby('Gene'):    
-    n = d_g['Movie ID'].nunique()
-    
-    fig,ax=plt.subplots(1,1)
-    sns.lineplot(d_g, x='Timepoint (h)', y='Normalized intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
-    plt.ylabel('Normalized mean intensity (a.u.)', fontsize=14)
-    plt.xlabel('Time (h)', fontsize=14)
-    plt.title(f'Gene: {g}', fontsize=14)
-    
-    plt.rcParams.update({'font.size':14})
-    plt.tight_layout()
-    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
-    plt.savefig(fr'{figs_dir}/Normalized_Mean_intensity_plot_{g}_n{n}_mean_line.pdf', dpi=600, transparent=True) 
-
 
 print('Generating plots for Fig.6C., Fig.6 G, Fig.6 K  ')
 # Filtering to 10 z-slices over which the mean intensity is calculated
