@@ -32,18 +32,11 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
         print(f"Movie: {movie_id}")
         
         print("Getting raw data...")
-        raw_path=df_movie["File Path"].values[0]
-        if platform.system() == "Windows":
-            raw_path = io.convert_to_windows_path(Path(raw_path))
-
+        raw_path = df_movie["File Path"].values[0]
         raw_reader = BioImage(raw_path)
     
         print("Getting colony mask....")
         seg_path = df_movie["All Cells Mask URL"].values[0]
-
-        if platform.system() == "Windows":
-           seg_path = io.convert_to_windows_path(Path(seg_path))
-        
         seg_reader = BioImage(seg_path)
         
         print("Computing features....")
