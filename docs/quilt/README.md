@@ -12,7 +12,7 @@ This dataset can be accessed on quilt [here](https://open.quiltdata.com/b/allenc
 
 The `emt_timelapse_dataset` directory is organized in the following structure.
 
-TODO: image goes here
+![Directory structure](./dataset_structure.svg)
 
 ## data
 
