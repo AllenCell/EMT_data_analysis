@@ -14,14 +14,14 @@ from bioio import BioImage
 
 from skimage.measure import regionprops
 
-from EMT_data_analysis.tools import alignment
+from EMT_data_analysis.tools import alignment, io
 
 import argparse
 
 #####----------Main Analysis Function----------#####
 
 def nuclei_localization(
-        manifest_path:str, 
+        df:pd.DataFrame, 
         movie_id:str,
         output_directory:str,
         align_segmentation:bool=True,
@@ -45,10 +45,7 @@ def nuclei_localization(
     out_dir = Path(output_directory)
     out_dir.mkdir(exist_ok=True, parents=True)
     
-    # load data
-    df = pd.read(manifest_path)
-    df = df[df['Movie Unique ID'] == movie_id]
-
+    # load segmetnations and meshes
     if df['Gene'].values[0] == 'HIST1H2BJ':
         seg_path = df['H2B Nuclear Segmentation File Download'].values[0]
     elif df['Gene'].values[0] == 'EOMES|TBR2':
@@ -56,7 +53,6 @@ def nuclei_localization(
     else:
         raise ValueError(f"The move {movie_id} does not have EOMES or H2B segmentations")
         
-
     segmentations = BioImage(df['CollagenIV Segmentation Probability File Download'].values[0])
     meshes = pv.load(df['CollagenIV Segmentation Mesh Folder'].values[0])
     
@@ -180,10 +176,10 @@ def localize_for_timepoint(
     return pd.DataFrame(nucData)
 
 
-#####----------Main Function Call----------#####
+#####----------Run Function Call----------#####
 
 def run_nuclei_localization(
-        manifest_path:str,
+        df_manifest:pd.DataFrame,
         output_directory:str,
         align_segmentation:bool=True,
     ):
@@ -202,15 +198,13 @@ def run_nuclei_localization(
             Flag to enable alignment of the segmentation using the barcode of the movie.
             Default is True.
     '''
-    # load
-    df = pd.read_csv(manifest_path)
+    for movie_id in tqdm(pd.unique(df_manifest['Movie Unique ID'])):
+        df_id = df_manifest[df_manifest['Movie Unique ID'] == movie_id]
 
-    for movie_id in tqdm(pd.unique(df['Movie Unique ID'])):
-        df_id = df[df['Movie Unique ID'] == movie_id]
-
+        # make sure the movie has the required segmentations
         if df_id['Gene'].values[0] in ['HIST1H2BJ', 'EOMES|TBR2']:
             nuclei_localization(
-                manifest_path=manifest_path,
+                manifest=df_id,
                 movie_id=movie_id,
                 output_directory=output_directory,
                 align_segmentation=align_segmentation
@@ -218,14 +212,10 @@ def run_nuclei_localization(
 
 #####----------Argument Parsing----------#####
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Localize nuclei inside a 3D mesh.')
-    parser.add_argument('--manifest_path', type=str, required=True, help='Path to the csv manifest of the full dataset')
-    parser.add_argument('--output_directory', type=str, required=True, help='Path to the output directory where the localized nuclei data will be saved.')
-    parser.add_argument('--align_segmentation', type=bool, default=True, help='Flag to enable alignment of the segmentation using the barcode of the movie. Default is True.')
-    args = parser.parse_args()
+    manifest = io.load_imaging_and_segmentation_dataset()
+    output_dir = io.setup_base_directory_name("nuclei_localization")
 
     run_nuclei_localization(
-        manifest_path=args.manifest_path,
-        output_directory=args.output_directory,
-        align_segmentation=args.align_segmentation
+        manifest=manifest,
+        output_directory=output_dir
     )
