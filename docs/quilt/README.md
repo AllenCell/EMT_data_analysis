@@ -12,7 +12,12 @@ This dataset can be accessed on quilt [here](https://open.quiltdata.com/b/allenc
 
 The `emt_timelapse_dataset` directory is organized in the following structure.
 
-<img src="https://github.com/AllenCell/EMT_data_analysis/blob/bioRxiv-v1/docs/quilt/dataset_structure.svg" width="500px" />
+```
+emt_timelapse_dataset
+├── data
+├── manifests
+└── supplemental_files
+```
 
 ## data
 
