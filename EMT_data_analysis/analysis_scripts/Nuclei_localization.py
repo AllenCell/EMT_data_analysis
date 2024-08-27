@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from tqdm import tqdm
 
 # 3d meshing libraries
 import pyvista as pv
@@ -13,7 +14,9 @@ from bioio import BioImage
 
 from skimage.measure import regionprops
 
-from .Image_alignment import align_image, get_alignment_matrix
+from EMT_data_analysis.tools import alignment
+
+import argparse
 
 #####----------Main Analysis Function----------#####
 
@@ -67,7 +70,7 @@ def nuclei_localization(
             continue
         
         if align_segmentation:
-            alignment_matrix = np.ndarray(eval(df['Camera Alignment Matrix'].values[0]))
+            alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Camera Alignment Matrix'].values[0])
         else:
             alignment_matrix = np.zeros((3,3))
 
@@ -89,7 +92,7 @@ def nuclei_localization(
     cols = nuclei.columns
     nuclei = nuclei[cols[-2:] + cols[:-2]]
 
-    out_fn = out_dir / (Path(segmentation_fn).stem.replace("_segmentation", "_localized_nuclei") + ".csv")
+    out_fn = out_dir / movie_id + "_localized_nuclei.csv"
     nuclei.to_csv(out_fn, index=False)
     
 #####----------Helper Functions----------#####
@@ -117,8 +120,8 @@ def localize_for_timepoint(
     
     # align segmentation if required
     if align_segmentation:
-        transform = get_alignment_matrix(barcode, alignment_folder)
-        seg = align_image(seg, transform)
+        transform = alignment.get_alignment_matrix(alignment_matrix)
+        transform = transform.inverse
 
     # convert 2d surface mesh into an enclosed 3d mesh
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
@@ -175,3 +178,54 @@ def localize_for_timepoint(
             nucData['Inside'].append(False)
     
     return pd.DataFrame(nucData)
+
+
+#####----------Main Function Call----------#####
+
+def run_nuclei_localization(
+        manifest_path:str,
+        output_directory:str,
+        align_segmentation:bool=True,
+    ):
+    '''
+        This is the main function to localize nuclei inside a 3D mesh.
+        
+        Parameters
+        ----------
+        manifest_path: str
+            Path to the csv manifest of the full dataset
+        movie_id: str
+            Movie Unique ID from manifest for data to process
+        output_directory: str
+            Path to the output directory where the localized nuclei data will be saved.
+        align_segmentation: bool
+            Flag to enable alignment of the segmentation using the barcode of the movie.
+            Default is True.
+    '''
+    # load
+    df = pd.read_csv(manifest_path)
+
+    for movie_id in tqdm(pd.unique(df['Movie Unique ID'])):
+        df_id = df[df['Movie Unique ID'] == movie_id]
+
+        if df_id['Gene'].values[0] in ['HIST1H2BJ', 'EOMES|TBR2']:
+            nuclei_localization(
+                manifest_path=manifest_path,
+                movie_id=movie_id,
+                output_directory=output_directory,
+                align_segmentation=align_segmentation
+            )
+
+#####----------Argument Parsing----------#####
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Localize nuclei inside a 3D mesh.')
+    parser.add_argument('--manifest_path', type=str, required=True, help='Path to the csv manifest of the full dataset')
+    parser.add_argument('--output_directory', type=str, required=True, help='Path to the output directory where the localized nuclei data will be saved.')
+    parser.add_argument('--align_segmentation', type=bool, default=True, help='Flag to enable alignment of the segmentation using the barcode of the movie. Default is True.')
+    args = parser.parse_args()
+
+    run_nuclei_localization(
+        manifest_path=args.manifest_path,
+        output_directory=args.output_directory,
+        align_segmentation=args.align_segmentation
+    )
