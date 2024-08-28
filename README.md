@@ -31,6 +31,8 @@ This will generate a single CSV containing information about all the movies to b
 
 ## 3 - Nuclei localization
 
+Run: `python Nuclei_localization.py`
+
 This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
 
 ## 4 - Analysis Plots
