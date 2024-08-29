@@ -34,7 +34,7 @@ def nuclei_localization(
         manifest_path: str
             Path to the csv manifest of the full dataset
         movie_id: str
-            Movie Unique ID from manifest for data to process
+            Movie ID from manifest for data to process
         output_directory: str
             Path to the output directory where the localized nuclei data will be saved.
         align_segmentation: bool
@@ -53,6 +53,7 @@ def nuclei_localization(
     else:
         raise ValueError(f"The move {movie_id} does not have EOMES or H2B segmentations")
         
+    # import pdb; pdb.set_trace()
     segmentations = BioImage(df['CollagenIV Segmentation Probability File Download'].values[0])
     meshes = pv.load(df['CollagenIV Segmentation Mesh Folder'].values[0])
     
@@ -79,7 +80,7 @@ def nuclei_localization(
             alignment_matrix=alignment_matrix
         )
         
-        nuclei_tp['Movie Unique ID'] = movie_id
+        nuclei_tp['Movie ID'] = movie_id
         nuclei_tp['Time hr'] = timepoint / 0.5
         nuclei.append(nuclei_tp)
         
@@ -191,24 +192,28 @@ def run_nuclei_localization(
         manifest_path: str
             Path to the csv manifest of the full dataset
         movie_id: str
-            Movie Unique ID from manifest for data to process
+            Movie ID from manifest for data to process
         output_directory: str
             Path to the output directory where the localized nuclei data will be saved.
         align_segmentation: bool
             Flag to enable alignment of the segmentation using the barcode of the movie.
             Default is True.
     '''
-    for movie_id in tqdm(pd.unique(df_manifest['Movie Unique ID'])):
-        df_id = df_manifest[df_manifest['Movie Unique ID'] == movie_id]
+    df_cond = df_manifest[
+        [gene in ['HIST1H2BJ', 'EOMES|TBR2'] for gene in df_manifest['Gene'].values]
+    ].dropna(subset=['CollagenIV Segmentation Probability File Download'])
 
-        # make sure the movie has the required segmentations
-        if df_id['Gene'].values[0] in ['HIST1H2BJ', 'EOMES|TBR2']:
-            nuclei_localization(
-                manifest=df_id,
-                movie_id=movie_id,
-                output_directory=output_directory,
-                align_segmentation=align_segmentation
-            )
+    for movie_id in tqdm(pd.unique(df_cond['Movie ID'])):
+        df_id = df_manifest[df_manifest['Movie ID'] == movie_id]
+
+        # # make sure the movie has the required segmentations
+        # if df_id['Gene'].values[0] in ['HIST1H2BJ', 'EOMES|TBR2']:
+        nuclei_localization(
+            df=df_id,
+            movie_id=movie_id,
+            output_directory=output_directory,
+            align_segmentation=align_segmentation
+        )
 
 #####----------Argument Parsing----------#####
 if __name__ == '__main__':
@@ -216,6 +221,6 @@ if __name__ == '__main__':
     output_dir = io.setup_base_directory_name("nuclei_localization")
 
     run_nuclei_localization(
-        manifest=manifest,
+        df_manifest=manifest,
         output_directory=output_dir
     )
