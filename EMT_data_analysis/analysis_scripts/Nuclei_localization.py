@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
+import quilt3 as q3
+from shutil import rmtree
 
 # 3d meshing libraries
 import pyvista as pv
@@ -44,27 +46,44 @@ def nuclei_localization(
     # ensure output directory exists
     out_dir = Path(output_directory)
     out_dir.mkdir(exist_ok=True, parents=True)
+
+    tmp_dir = Path("./emt_tmp/nuclei_localization/")
+    tmp_dir.mkdir(exist_ok=True, parents=True)
     
     # load segmetnations and meshes
     if df['Gene'].values[0] == 'HIST1H2BJ':
-        seg_path = df['H2B Nuclear Segmentation File Download'].values[0]
+        seg_path = df['H2B Nuclear Segmentation URL'].values[0]
     elif df['Gene'].values[0] == 'EOMES|TBR2':
-        seg_path = df['EOMES Nuclear Segmentation File Download'].values[0]
+        seg_path = df['EOMES Nuclear Segmentation URL'].values[0]
     else:
         raise ValueError(f"The move {movie_id} does not have EOMES or H2B segmentations")
         
     # import pdb; pdb.set_trace()
-    segmentations = BioImage(df['CollagenIV Segmentation Probability File Download'].values[0])
-    meshes = pv.load(df['CollagenIV Segmentation Mesh Folder'].values[0])
+    segmentations = BioImage(df['CollagenIV Segmentation Probability URL'].values[0])
+
+    # download meshes into temporary directory from s3 bucket
+    mesh_path = df['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
+    bucket = q3.Bucket("s3://allencell")
+    bucket.fetch(
+        mesh_path + '/', 
+        str(tmp_dir) + '/'
+    )
+
+    # load meshes
+    mesh_fn = tmp_dir / (mesh_path.split('/')[-1] + '.vtm')
+    meshes = pv.read(mesh_fn)
     
     # localize nuclei for each timepoint
     num_timepoints = int(df['Image Size T'].values[0])
     nuclei = []
-    for timepoint in range(num_timepoints):
+    for timepoint in tqdm(range(num_timepoints), desc=f"Movie {movie_id}"):
         # check if mesh exists for this timepoint
         if f'{timepoint}' not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
+
+        if timepoint > 2:
+            break
         
         if align_segmentation:
             alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Camera Alignment Matrix'].values[0])
@@ -72,7 +91,6 @@ def nuclei_localization(
             alignment_matrix = np.zeros((3,3))
 
         # localize nuclei
-        print(f"Localizing nuclei for timepoint {timepoint}...")
         nuclei_tp = localize_for_timepoint(
             mesh=meshes[f'{timepoint}'],
             seg=segmentations.get_image_data("ZYX", T=timepoint).squeeze(),
@@ -86,11 +104,16 @@ def nuclei_localization(
         
     # save nuclei data
     nuclei = pd.concat(nuclei)
-    cols = nuclei.columns
-    nuclei = nuclei[cols[-2:] + cols[:-2]]
+    cols = nuclei.columns.tolist()
+    newcols = cols[-2:]
+    newcols.extend(cols[:-2])
+    nuclei = nuclei[newcols]
 
-    out_fn = out_dir / movie_id + "_localized_nuclei.csv"
+    out_fn = out_dir / (movie_id + "_localized_nuclei.csv")
     nuclei.to_csv(out_fn, index=False)
+    rmtree(tmp_dir)
+
+
     
 #####----------Helper Functions----------#####
     
@@ -201,9 +224,11 @@ def run_nuclei_localization(
     '''
     df_cond = df_manifest[
         [gene in ['HIST1H2BJ', 'EOMES|TBR2'] for gene in df_manifest['Gene'].values]
-    ].dropna(subset=['CollagenIV Segmentation Probability File Download'])
+    ].dropna(subset=['CollagenIV Segmentation Probability URL'])
 
-    for movie_id in tqdm(pd.unique(df_cond['Movie ID'])):
+    print(f"Processing {len(df_cond)} movies with CollagenIV segmentations.")
+
+    for movie_id in tqdm(pd.unique(df_cond['Movie ID']), desc="Movies"):
         df_id = df_manifest[df_manifest['Movie ID'] == movie_id]
 
         # # make sure the movie has the required segmentations
