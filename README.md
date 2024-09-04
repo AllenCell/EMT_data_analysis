@@ -7,7 +7,12 @@ This repository contains code for reproducing the plots shown in our manuscript 
 This code has been tested on Ubuntu 18.04.2 LTS and Windows 10 using Python 3.11.
 
 # Installation
-1. Install python>=3.11 and pip>=24.0.0.
+1. Install python 3.11 and pip>=24.0.0.
+2. Install the dependencies for [lxml](https://lxml.de/installation.html).
+On Ubuntu or Debian:
+```bash
+sudo apt-get install libxml2-dev libxslt-dev python-dev
+```
 2. Create a new virtual environment.
 ```bash
 python -m venv venv
