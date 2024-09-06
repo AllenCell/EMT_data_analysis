@@ -1,13 +1,15 @@
 import numpy as np
 from typing import List, Union
 from skimage.transform import SimilarityTransform, warp
+import re
 
 import warnings
 warnings.filterwarnings("ignore")
 
 def parse_rotation_matrix_from_string(matrix_string: str):
     # Hacky convertion of string to matrix. Maybe there is a better solution (regex?)
-    matrix_string = matrix_string.replace("  "," ").replace("[ ","[")
+    matrix_string = re.sub(' +', ' ', matrix_string)
+    matrix_string = matrix_string.replace("[ ","[")
     matrix_string = matrix_string.replace("\n ", ",").replace(" ", ",")
     matrix = np.asarray(eval(matrix_string))
     return matrix
