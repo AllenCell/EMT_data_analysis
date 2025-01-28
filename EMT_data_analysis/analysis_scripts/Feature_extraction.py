@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 from aicsimageio import AICSImage
 from tqdm import tqdm
 
-from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix
+from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix, camera_correction
 
 #######---extracting area and intensity values for every z-----####--TAKES THE MOST TIME
 from aicsfiles import FileManagementSystem 
@@ -85,6 +85,10 @@ def compute_bf_colony_features(df, save_folder, align=True):
                 
             img_seg=AICSImage(seg_path).data.squeeze()
             
+            if df_fms['channel 3'] == 'N-cadherin':
+                img_seg = camera_correction(img_seg)
+                img_raw = camera_correction(img_raw)
+
             if align:
                 barcode = list(record.annotations['Plate Barcode'])[0]
                 transform = get_alignment_matrix(barcode)
@@ -96,6 +100,7 @@ def compute_bf_colony_features(df, save_folder, align=True):
                 z.append(i)
                 seg_z = img_seg[i]
                 if align:
+                    
                     seg_z = align_image(seg_z, transform)
                 
                 # select=np.where(seg_z, img_raw[i], 0 )
