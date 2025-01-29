@@ -39,6 +39,7 @@ def compute_bf_colony_features(df, save_folder, align=True):
 
     for fms_id, df_fms in tqdm(df.groupby('fms_id')):
     #importing raw image
+        # TODO adjust the file extraction to get the correct scene for each row
         print(f'FMS_id-{fms_id}')
         print('Getting raw data...')
         file_fms_id=df_fms.fms_id.values[0]
