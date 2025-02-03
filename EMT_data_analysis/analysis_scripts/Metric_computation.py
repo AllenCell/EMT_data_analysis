@@ -10,7 +10,7 @@ warnings.filterwarnings("ignore")
 
 import scipy.ndimage
 from scipy.signal import savgol_filter
-from aicsimageio import AICSImage
+from bioio import BioImage
 from tqdm import tqdm
 
 import platform
@@ -129,7 +129,7 @@ def add_bottom_mip_migration(df_merged):
 
         for tm in np.arange(l):
             seg_path=df_seg['Mask_path'][df_seg.Timepoint==tm].values[0]
-            img_seg=AICSImage(seg_path).data.squeeze()
+            img_seg=BioImage(seg_path).data.squeeze()
             img_z=img_seg[z_bottom:z_bottom+2]
             z_max_proj = np.max(img_z,axis=0)
             img_fh=scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)

@@ -6,7 +6,7 @@ import os
 import warnings
 warnings.filterwarnings("ignore")
 
-from aicsimageio import AICSImage
+from bioio import BioImage
 from tqdm import tqdm
 
 from EMT_data_analysis.analysis_scripts.Image_alignment import align_image, get_alignment_matrix, camera_correction
@@ -37,100 +37,86 @@ def compute_bf_colony_features(df, save_folder, align=True):
     saves feature files for each movie in the mentioned folder'''
 
 
-    for fms_id, df_fms in tqdm(df.groupby('fms_id')):
+    for scene, df_scene in tqdm(df.groupby('Scene Identifier')):
     #importing raw image
-        # TODO adjust the file extraction to get the correct scene for each row
-        print(f'FMS_id-{fms_id}')
+        barcode = df_scene['Barcode']
+
+        print(f'Bacode-{barcode}')
+        print(f'Scene-{scene}')
         print('Getting raw data...')
-        file_fms_id=df_fms.fms_id.values[0]
-        record = list(fms.find(
-            annotations={"File Id":file_fms_id},
-            limit=1,
-        ))[0]
-        
-        file_path=record.path
+                
+        file_path=df_scene['Raw path']
         if platform.system()=='Windows':
             path_w=file_path.replace('/','\\')
-            img=AICSImage(repr(path_w)[1:-1])
+            img=BioImage(repr(path_w)[1:-1])
         else:
-            img=AICSImage(file_path)
+            img=BioImage(file_path)
+        img.set_scene(scene)
     
         print('Getting colony mask....')
         if platform.system()!='Windows':
-            folder = df_fms.colony_mask_path.values[0]
+            folder = df_scene.colony_mask_path.values[0]
             folder = Path(folder).as_posix()
         else:
-            folder = df_fms.colony_mask_path.values[0]
+            folder = df_scene.colony_mask_path.values[0]
         print(folder)
-        t, mask_path=[],[]
-        for file in os.listdir(folder):
-            if 'tif' in file:
-                temp=file.split('=')[4]
-                frame=int(temp.split('_')[0])
-                t.append(frame)
-                if platform.system()!='Windows':
-                    mask_path.append(folder+'/'+file)
-                else:
-                    mask_path.append(folder+'\\'+file)
-        df_seg=pd.DataFrame(zip(t, mask_path), columns=['Timepoint','Mask_path'])
+        df_seg = pd.DataFrame([df_scene['Timepoint (h)'], df_scene['ACM path']], columns=['Timepoint','Mask_path'])
         
         print('Computing features....')
         df_cr=pd.DataFrame()
-        l=len(t)
-        if l>97:
-            l=97
-        for time in tqdm(np.arange(l)):
-            img_tl=img.get_image_dask_data("ZYX", C=1, T=time)
-            img_raw = img_tl.compute() 
-            seg_path=df_seg['Mask_path'][df_seg.Timepoint==time].values[0]
-                
-            img_seg=AICSImage(seg_path).data.squeeze()
-            
-            if df_fms['channel 3'] == 'N-cadherin':
-                img_seg = camera_correction(img_seg)
-                img_raw = camera_correction(img_raw)
+        img_tl=img.get_image_dask_data("ZYX", C=1,)
+        img_raw = img_tl.compute() 
+        
+        seg_path=df_seg['Mask_path'].values[0]    
+        img_seg=BioImage(seg_path).data.squeeze()
+        
+        if df_scene['channel 3'] == 'N-cadherin':
+            img_seg = camera_correction(img_seg)
+            img_raw = camera_correction(img_raw)
 
+        if align:
+            transform = get_alignment_matrix(
+                barcode=df_scene['Instrument'], 
+                alignment_folder='/allen/aics/assay-dev/users/Filip/Projects/camera_alignment/EMT-reprocess/camera-alignment/alignment_info'
+            )
+            transform = transform.inverse
+        
+        s_z=int(img_seg.shape[0])
+        z,area,mean_int, total_int, var_int=[],[],[],[],[]
+        for i in np.arange(s_z):
+            z.append(i)
+            seg_z = img_seg[i]
             if align:
-                barcode = list(record.annotations['Plate Barcode'])[0]
-                transform = get_alignment_matrix(barcode)
-                transform = transform.inverse
+                seg_z = align_image(seg_z, transform)
             
-            s_z=int(img_seg.shape[0])
-            z,area,mean_int, total_int, var_int=[],[],[],[],[]
-            for i in np.arange(s_z):
-                z.append(i)
-                seg_z = img_seg[i]
-                if align:
-                    
-                    seg_z = align_image(seg_z, transform)
-                
-                # select=np.where(seg_z, img_raw[i], 0 )
-                mask=np.bool_(seg_z)
-                img_int=img_raw[i]
-                intensity=np.mean(img_int[mask])
-                ar=np.count_nonzero(mask)
-                total=np.sum(img_int[mask])
-                var=np.var(img_int[mask])
+            mask=np.bool_(seg_z)
+            img_int=img_raw[i]
+            intensity=np.mean(img_int[mask])
+            ar=np.count_nonzero(mask)
+            total=np.sum(img_int[mask])
+            var=np.var(img_int[mask])
 
-                area.append(ar)
-                total_int.append(total)
-                mean_int.append(intensity)
-                var_int.append(var)
-            df_prop=pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z','area_pixels','mean_intensity','total_intensity','Variance_intensity'])
-            z_proj=np.count_nonzero(img_seg, axis=0)
-            m_z=np.ma.masked_equal(z_proj,0)
-            z_max_proj = np.max(img_seg,axis=0)
-            ar2=np.count_nonzero(z_max_proj) 
-            df_prop['MIP_area']=ar2
-            df_prop['z_median']=np.ma.median(m_z)
-            df_prop['z_mean']=np.ma.mean(m_z)
-            df_prop['z_max']=np.ma.max(m_z)
-            df_prop['Timepoint']=time
-            df_cr=pd.concat([df_cr,df_prop])
-        df_cr['fms_id']=fms_id
-        df_cr['gene']=df_fms.gene.values[0]
-        df_cr['Condition']=df_fms.fms_condition.values[0]
-        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{fms_id}.csv')
+            area.append(ar)
+            total_int.append(total)
+            mean_int.append(intensity)
+            var_int.append(var)
+        
+        df_prop=pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z','area_pixels','mean_intensity','total_intensity','Variance_intensity'])
+        z_proj=np.count_nonzero(img_seg, axis=0)
+        m_z=np.ma.masked_equal(z_proj,0)
+        z_max_proj = np.max(img_seg,axis=0)
+        ar2=np.count_nonzero(z_max_proj) 
+        df_prop['MIP_area']=ar2
+        df_prop['z_median']=np.ma.median(m_z)
+        df_prop['z_mean']=np.ma.mean(m_z)
+        df_prop['z_max']=np.ma.max(m_z)
+        df_prop['Timepoint']=df_scene['Timepoint (h)']
+        df_cr=pd.concat([df_cr,df_prop])
+
+        df_cr['scene']=scene
+        df_cr['gene']=df_scene.gene.values[0]
+        df_cr['Condition']=df_scene.fms_condition.values[0]
+        df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{barcode}_{scene}.csv')
 
 
 

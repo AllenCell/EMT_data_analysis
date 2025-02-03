@@ -9,7 +9,7 @@ import pyvista as pv
 import trimesh
 import point_cloud_utils as pcu
 
-from aicsimageio import AICSImage
+from bioio import BioImage
 
 from skimage.measure import regionprops
 
@@ -49,7 +49,7 @@ def nuclei_localization(
     out_dir.mkdir(exist_ok=True, parents=True)
     
     # load data
-    segmentations = AICSImage(segmentation_fn)
+    segmentations = BioImage(segmentation_fn)
     meshes = pv.read(mesh_fn)
     
     # localize nuclei for each timepoint
