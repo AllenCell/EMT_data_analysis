@@ -170,14 +170,14 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
 
     print('merging the bottom z information with the colony mask path csv')
     df_z=df_all_z.groupby('fms_id')['z_bottom'].agg('first').reset_index()
-    df_merged=pd.merge(df_z,path_manifest, how='left',on=['fms_id'])
+    df_features=pd.merge(df_z,path_manifest, how='left',on=['fms_id'])
 
-    print('computing area at the glass (bottom 2 z MIP) and migration time')
-    df_mm=add_bottom_mip_migration(df_merged)
+    # print('computing area at the glass (bottom 2 z MIP) and migration time')
+    # df_mm=add_bottom_mip_migration(df_merged)
 
-    print('merging everything into a single feature manifest')
-    df_features=pd.merge(df_all_z,df_mm, on=['fms_id','Timepoint'], suffixes=("","_remove"))
-    df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
+    # print('merging everything into a single feature manifest')
+    # df_features=pd.merge(df_all_z,df_mm, on=['fms_id','Timepoint'], suffixes=("","_remove"))
+    # df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
 
     n_movies=df_features.fms_id.nunique()
     print('saving the final feature file')
