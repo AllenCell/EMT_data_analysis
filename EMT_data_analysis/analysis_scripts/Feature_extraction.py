@@ -16,8 +16,17 @@ from aicsfiles import FileManagementSystem
 fms=FileManagementSystem.from_env('prod')
 import platform
 from pathlib import Path
+from fire import Fire
 
-def compute_bf_colony_features(df, save_folder, align=True):
+def main(manifest: str, outdir: str, align=True):
+    # run compute features for these parameters is not running the full workflow
+    df = pd.read_csv(manifest)
+    save_folder = Path(outdir) / 'feature_extraction'
+    save_folder.mkdir(parents=True, exist_ok=True)
+    compute_bf_colony_features(df, save_folder, True)
+
+
+def compute_bf_colony_features(df, save_folder, align=True, flourescence_channels=[2,3]):
     '''
     This function  computes area of the BF colony mask at every z position and also extracts corresponding intensity values from the fluorescence channel. It also adds other features from the BF colony mask.
     Parameters
@@ -37,15 +46,22 @@ def compute_bf_colony_features(df, save_folder, align=True):
     saves feature files for each movie in the mentioned folder'''
 
 
-    for scene, df_scene in tqdm(df.groupby('Scene Identifier')):
+    for _, df_scene in tqdm(df.iterrows(), total=len(df.index)):
     #importing raw image
         barcode = df_scene['Barcode']
+        well = df_scene['Well']
+        pos = df_scene['Position']
+        scene = f'{pos}-{well}'
+
+        outfn = Path(save_folder) / f'Features_bf_colony_mask_{barcode}_{scene}.csv'
+        # if outfn.exists():
+            # continue
 
         print(f'Bacode-{barcode}')
         print(f'Scene-{scene}')
         print('Getting raw data...')
                 
-        file_path=df_scene['Raw path']
+        file_path=df_scene['Raw File Path']
         if platform.system()=='Windows':
             path_w=file_path.replace('/','\\')
             img=BioImage(repr(path_w)[1:-1])
@@ -54,54 +70,66 @@ def compute_bf_colony_features(df, save_folder, align=True):
         img.set_scene(scene)
     
         print('Getting colony mask....')
+        seg_path = df_scene['Seg File Path']
         if platform.system()!='Windows':
-            folder = df_scene.colony_mask_path.values[0]
-            folder = Path(folder).as_posix()
-        else:
-            folder = df_scene.colony_mask_path.values[0]
-        print(folder)
-        df_seg = pd.DataFrame([df_scene['Timepoint (h)'], df_scene['ACM path']], columns=['Timepoint','Mask_path'])
+            seg_path = Path(seg_path).as_posix()
+        print(seg_path)
+        df_seg = pd.DataFrame([[df_scene['Timepoint (h)'], seg_path]], columns=['Timepoint','Mask_path'])
         
-        print('Computing features....')
-        df_cr=pd.DataFrame()
-        img_tl=img.get_image_dask_data("ZYX", C=1,)
-        img_raw = img_tl.compute() 
-        
-        seg_path=df_seg['Mask_path'].values[0]    
-        img_seg=BioImage(seg_path).data.squeeze()
-        
-        if df_scene['channel 3'] == 'N-cadherin':
-            img_seg = camera_correction(img_seg)
-            img_raw = camera_correction(img_raw)
-
-        if align:
-            transform = get_alignment_matrix(
-                barcode=df_scene['Instrument'], 
-                alignment_folder='/allen/aics/assay-dev/users/Filip/Projects/camera_alignment/EMT-reprocess/camera-alignment/alignment_info'
-            )
-            transform = transform.inverse
-        
-        s_z=int(img_seg.shape[0])
-        z,area,mean_int, total_int, var_int=[],[],[],[],[]
-        for i in np.arange(s_z):
-            z.append(i)
-            seg_z = img_seg[i]
-            if align:
-                seg_z = align_image(seg_z, transform)
+        df_channels = []
+        for ch in flourescence_channels:
+            df_cr=pd.DataFrame()
+            img_tl=img.get_image_dask_data("ZYX", C=ch,)
+            img_raw = img_tl.compute() 
             
-            mask=np.bool_(seg_z)
-            img_int=img_raw[i]
-            intensity=np.mean(img_int[mask])
-            ar=np.count_nonzero(mask)
-            total=np.sum(img_int[mask])
-            var=np.var(img_int[mask])
+            seg_path=df_seg['Mask_path'].values[0]    
+            img_seg=BioImage(seg_path).data.squeeze()
+            
+            if df_scene['Channel 3'] == 'N-cadherin':
+                print('Correcting Camera Issues')
+                print('Start size:', img_raw.shape)
+                img_seg = camera_correction(img_seg)
+                img_raw = camera_correction(img_raw)
 
-            area.append(ar)
-            total_int.append(total)
-            mean_int.append(intensity)
-            var_int.append(var)
-        
-        df_prop=pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z','area_pixels','mean_intensity','total_intensity','Variance_intensity'])
+            if align:
+                print('Performing Camera Alignment')
+                transform = get_alignment_matrix(
+                    barcode=df_scene['Scope'], 
+                    alignment_folder='/allen/aics/assay-dev/users/Filip/Projects/camera_alignment/EMT-reprocess/camera-alignment/alignment_info'
+                )
+                transform = transform.inverse
+            
+            print('Raw:', img_raw.shape)
+            print('Seg:', img_seg.shape)
+            if img_seg.shape[-1] < img_seg.shape[0]:
+                img_seg = img_seg.transpose([2,0,1])
+                print('Seg trandspose:', img_seg.shape) 
+
+            print('Computing features....')
+            s_z=int(img_seg.shape[0])
+            z,area,mean_int, total_int, var_int=[],[],[],[],[]
+            for i in np.arange(s_z):
+                z.append(i)
+                seg_z = img_seg[i]
+                if align:
+                    seg_z = align_image(seg_z, transform)
+                
+                mask=np.bool_(seg_z)
+                img_int=img_raw[i]
+                intensity=np.mean(img_int[mask])
+                ar=np.count_nonzero(mask)
+                total=np.sum(img_int[mask])
+                var=np.var(img_int[mask])
+
+                area.append(ar)
+                total_int.append(total)
+                mean_int.append(intensity)
+                var_int.append(var)
+            
+            channel = f'channel_{int(ch+1)}'
+            df_channels.append(pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z',f'area_pixels',f'{channel}_mean_intensity',f'{channel}_total_intensity',f'{channel}_variance_intensity']))
+        df_prop = pd.concat(df_channels, axis=1)
+        df_prop = df_prop.loc[:,~df_prop.columns.duplicated()].copy()
         z_proj=np.count_nonzero(img_seg, axis=0)
         m_z=np.ma.masked_equal(z_proj,0)
         z_max_proj = np.max(img_seg,axis=0)
@@ -114,13 +142,14 @@ def compute_bf_colony_features(df, save_folder, align=True):
         df_cr=pd.concat([df_cr,df_prop])
 
         df_cr['scene']=scene
-        df_cr['gene']=df_scene.gene.values[0]
-        df_cr['Condition']=df_scene.fms_condition.values[0]
+        df_cr['gene_channel_3'] = [df_scene['Channel 3'] if df_scene['Channel 3'] is not None else 'Control',]*len(df_cr)
+        df_cr['gene_channel_4'] = [df_scene['Channel 4'] if df_scene['Channel 4'] is not None else 'Control',]*len(df_cr)
         df_cr.to_csv(Path(save_folder) / f'Features_bf_colony_mask_{barcode}_{scene}.csv')
 
 
 
-
+if __name__ == '__main__':
+    Fire(main)
 
 
 
