@@ -36,8 +36,8 @@ def import_folder(folder_path):
         Returns the input DataFrame with 'z_norm' and 'z_bottom' columns """
 
     df=pd.DataFrame() 
-    for file in os.listdir(folder_path):
-        f1=pd.read_csv(folder_path+'/'+file)
+    for file in Path(folder_path).glob('*.csv'):
+        f1=pd.read_csv(file, index_col=0)
         f1['id_tag'] = Path(file).name.split('_')[-2] + '_' + f1['scene'].values[0]
         df=pd.concat([df,f1])
     return df
@@ -135,27 +135,28 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
     df_all_z=add_bottom_z(df)
 
     print('merging the bottom z information with the colony mask path csv')
-    df_z=df_all_z.groupby('fms_id')['z_bottom'].agg('first').reset_index()
-    path_manifest['id_tag'] = [f'{barcode}_{pos}_{well}' for barcode, pos, well in zip(path_manifest['Barcode'].values, path_manifest['Position'].values, path_manifest['Well'].values)]
-    df_features=pd.merge(df_z,path_manifest, how='left',on=['id_tag'])
+    # df_z=df_all_z.groupby('id_tag')['z_bottom'].agg('first').reset_index()
+    path_manifest['id_tag'] = [f'{barcode}_{pos}-{well}' for barcode, pos, well in zip(path_manifest['Barcode'].values, path_manifest['Position'].values, path_manifest['Well'].values)]
+    df_merged=pd.merge(df_all_z,path_manifest, how='left',on=['id_tag'])
 
-    # print('computing area at the glass (bottom 2 z MIP) and migration time')
-    # df_mm=add_bottom_mip_migration(df_merged)
+    print('computing area at the glass (bottom 2 z MIP) and migration time')
+    df_mm=add_bottom_mip(df_merged)
 
-    # print('merging everything into a single feature manifest')
-    # df_features=pd.merge(df_all_z,df_mm, on=['fms_id','Timepoint'], suffixes=("","_remove"))
-    # df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
+    print('merging everything into a single feature manifest')
+    df_features=pd.merge(df_all_z,df_mm, on=['id_tag','z'], suffixes=("","_remove"))
+    df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
+    df_features.drop(['Unnamed: 0_x', 'Unnamed: 0', 'gene_channel_3', 'gene_channel_4', 'fms_id', 'id_tag', 'Mask_path', 'Unnamed: 0_y', 'Timepoint'], axis=1, inplace=True, errors='ignore')
 
-    n_movies=df_features.id_tag.nunique()
+
     print('saving the final feature file')
-    df_features.to_csv(rf'{final_feature_folder}/ImmunoPanel_{n_movies}_entire_manifest.csv')
+    df_features.to_csv(rf'{final_feature_folder}/ImmunoPanel_entire_manifest.csv', index=False)
     return df_features
 
 
 # %% [markdown]
 ## running the pipeline to generate and save feature manifest
-path_manifest=pd.read_csv(r'/allen/aics/assay-dev/users/Sandi/cyto-dl/data/bf_colony_seg/ms_colony_mask_389movies_manifest_v0.csv')
-save_folder=r'/allen/aics/assay-dev/users/Filip/Data/EMT-colony-mask-features'
-final_feature_folder=r'/allen/aics/assay-dev/users/Nivedita/EMT/EMT_deliverable/BF_colony_mask/Manifests'
+path_manifest=pd.read_csv(r'/allen/aics/assay-dev/users/Filip/Public_Repos/emt-data-analysis/EMT_ImmunoPanel/manifest.csv')
+save_folder=r'/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/feature_extraction'
+final_feature_folder=r'/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests'
 df_features=compute_metrics(path_manifest, save_folder, final_feature_folder)
 # %%
