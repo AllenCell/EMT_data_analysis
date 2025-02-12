@@ -54,8 +54,12 @@ def compute_bf_colony_features(df, save_folder, align=True, flourescence_channel
         scene = f'{pos}-{well}'
 
         outfn = Path(save_folder) / f'Features_bf_colony_mask_{barcode}_{scene}.csv'
-        # if outfn.exists():
-            # continue
+        if outfn.exists():
+            df_cr = pd.read_csv(outfn, index_col=0)
+            df_cr['Mask_path'] = df_scene['Seg File Path']
+            df_cr['fms_id'] = df_scene['Raw FMS ID']
+            df_cr.to_csv(outfn)
+            continue
 
         print(f'Bacode-{barcode}')
         print(f'Scene-{scene}')
@@ -80,8 +84,13 @@ def compute_bf_colony_features(df, save_folder, align=True, flourescence_channel
         for ch in flourescence_channels:
             df_cr=pd.DataFrame()
             img_tl=img.get_image_dask_data("ZYX", C=ch,)
-            img_raw = img_tl.compute() 
-            
+            fail = False
+            try:
+                img_raw = img_tl.compute() 
+            except:
+                fail = True
+                break
+
             seg_path=df_seg['Mask_path'].values[0]    
             img_seg=BioImage(seg_path).data.squeeze()
             
@@ -128,6 +137,10 @@ def compute_bf_colony_features(df, save_folder, align=True, flourescence_channel
             
             channel = f'channel_{int(ch+1)}'
             df_channels.append(pd.DataFrame(zip(z,area,mean_int,total_int,var_int), columns=['z',f'area_pixels',f'{channel}_mean_intensity',f'{channel}_total_intensity',f'{channel}_variance_intensity']))
+        
+        if fail:
+            print('Failed to process')
+            continue
         df_prop = pd.concat(df_channels, axis=1)
         df_prop = df_prop.loc[:,~df_prop.columns.duplicated()].copy()
         z_proj=np.count_nonzero(img_seg, axis=0)
@@ -141,6 +154,8 @@ def compute_bf_colony_features(df, save_folder, align=True, flourescence_channel
         df_prop['Timepoint']=df_scene['Timepoint (h)']
         df_cr=pd.concat([df_cr,df_prop])
 
+        df_cr['Mask_path'] = df_scene['Seg File Path']
+        df_cr['fms_id'] = df_scene['Raw FMS ID']
         df_cr['scene']=scene
         df_cr['gene_channel_3'] = [df_scene['Channel 3'] if df_scene['Channel 3'] is not None else 'Control',]*len(df_cr)
         df_cr['gene_channel_4'] = [df_scene['Channel 4'] if df_scene['Channel 4'] is not None else 'Control',]*len(df_cr)

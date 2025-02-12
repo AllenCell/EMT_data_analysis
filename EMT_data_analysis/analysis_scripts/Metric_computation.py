@@ -38,6 +38,7 @@ def import_folder(folder_path):
     df=pd.DataFrame() 
     for file in os.listdir(folder_path):
         f1=pd.read_csv(folder_path+'/'+file)
+        f1['id_tag'] = Path(file).name.split('_')[-2] + '_' + f1['scene'].values[0]
         df=pd.concat([df,f1])
     return df
 
@@ -59,24 +60,24 @@ def add_bottom_z(df):
         Returns the input DataFrame with 'z_norm' and 'z_bottom' columns"""
     
     df['area']=df['area_pixels']*(0.271*0.271)
-    area_time=df.groupby(['fms_id','z'])['area'].agg('sum').reset_index()
+    area_time=df.groupby(['id_tag','z'])['area'].agg('sum').reset_index()
     file_id, z_bottom=[],[]
-    for id, df_fms in tqdm(area_time.groupby('fms_id')):
+    for id, df_id in tqdm(area_time.groupby('id_tag')):
         file_id.append(id)
-        df_fms=df_fms.reset_index()
+        df_id=df_id.reset_index()
     
-        raw_values=df_fms['area'].values
+        raw_values=df_id['area'].values
         dy=np.diff(raw_values)
         max_dy=np.max(dy)
         idx_max= np.where(dy== max_dy)[0]
         
-        zo=df_fms['z'][idx_max].values[0]+1
+        zo=df_id['z'][idx_max].values[0]+1
 
         
         z_bottom.append(zo)
-    df_bottom_z=pd.DataFrame(zip(file_id,z_bottom), columns=['fms_id','z_bottom'])
+    df_bottom_z=pd.DataFrame(zip(file_id,z_bottom), columns=['id_tag','z_bottom'])
 
-    df_merged=pd.merge(df,df_bottom_z, on=['fms_id'])
+    df_merged=pd.merge(df,df_bottom_z, on=['id_tag'])
 
     df_merged['z_norm']=df_merged.apply(lambda x: x['z']-x['z_bottom'], axis=1)
 
@@ -86,7 +87,7 @@ def add_bottom_z(df):
 
 
 
-def add_bottom_mip_migration(df_merged):
+def add_bottom_mip(df_merged):
     '''
     This adds area of MIP of bottom 2zs to get area at the glass and compute migration time from that.
     
@@ -101,55 +102,20 @@ def add_bottom_mip_migration(df_merged):
         Returns the input DataFrame with 'z_norm' and 'z_bottom' columns added to df_merged dataframe'''
      
     df_mm=pd.DataFrame()
-    for id, df_id in tqdm(df_merged.groupby('fms_id')):
-        ar_v,tp=[],[]
+    for id, df_id in tqdm(df_merged.groupby('id_tag')):
         z_bottom=df_id.z_bottom.values[0]
 
-        if platform.system()!='Windows':
-            folder=df_id.colony_mask_path.values[0]
-            folder = Path(folder).as_posix()
-        else:
-            folder=df_id.colony_mask_path.values[0]
-        print(folder)
-        t, mask_path=[],[]
-        for file in os.listdir(folder):
-            if 'tif' in file:
-                temp=file.split('=')[4]
-                frame=int(temp.split('_')[0])
-                t.append(frame)
-                if platform.system()!='Windows':
-                    mask_path.append(folder+'/'+file)
-                else:
-                    mask_path.append(folder+'\\'+file)
-        df_seg=pd.DataFrame(zip(t, mask_path), columns=['Timepoint','Mask_path'])   
-
-        l=len(t)
-        if l>97:
-            l=97
-
-        for tm in np.arange(l):
-            seg_path=df_seg['Mask_path'][df_seg.Timepoint==tm].values[0]
-            img_seg=BioImage(seg_path).data.squeeze()
-            img_z=img_seg[z_bottom:z_bottom+2]
-            z_max_proj = np.max(img_z,axis=0)
-            img_fh=scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)
+        seg_path=df_id['Mask_path'].values[0]
+        img_seg=BioImage(seg_path).data.squeeze()
+        img_z=img_seg[z_bottom:z_bottom+2]
+        z_max_proj = np.max(img_z,axis=0)
+        img_fh=scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)
+    
+        ar2=np.count_nonzero(img_fh)
         
-            ar2=np.count_nonzero(img_fh)
-            ar_v.append(ar2)
-            tp.append(tm)
-        df_area=pd.DataFrame(zip(tp,ar_v), columns=['Timepoint','Bottom_z_Area_pixels'])
-        print('adding migration timing..')
-        raw_values=df_area.Bottom_z_Area_pixels.values
-        df_area['dy2']=savgol_filter(raw_values,polyorder=2, window_length=40, deriv=2)
-        d_filt=df_area[(df_area.Timepoint>=35)&(df_area.Timepoint<=80)]
-        index_infl=d_filt['dy2'].idxmax()
-
-        x_p=df_area['Timepoint'][index_infl]
-        df_area['Migration_hr']=x_p*(30/60)
-        df_area['Bottom_z_mip']=df_area['Bottom_z_Area_pixels']*(0.271*0.271)
-        df_area['fms_id']=id
-        df_merged_area=pd.merge(df_id,df_area, on=['fms_id'])
-        df_mm=pd.concat([df_mm,df_merged_area])
+        df_area = df_id.copy(deep=True)
+        df_area['Bottom_z_Area_pixels'] = ar2
+        df_mm=pd.concat([df_mm,df_area])
 
     return df_mm
     
@@ -170,7 +136,8 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
 
     print('merging the bottom z information with the colony mask path csv')
     df_z=df_all_z.groupby('fms_id')['z_bottom'].agg('first').reset_index()
-    df_features=pd.merge(df_z,path_manifest, how='left',on=['fms_id'])
+    path_manifest['id_tag'] = [f'{barcode}_{pos}_{well}' for barcode, pos, well in zip(path_manifest['Barcode'].values, path_manifest['Position'].values, path_manifest['Well'].values)]
+    df_features=pd.merge(df_z,path_manifest, how='left',on=['id_tag'])
 
     # print('computing area at the glass (bottom 2 z MIP) and migration time')
     # df_mm=add_bottom_mip_migration(df_merged)
@@ -179,9 +146,9 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
     # df_features=pd.merge(df_all_z,df_mm, on=['fms_id','Timepoint'], suffixes=("","_remove"))
     # df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
 
-    n_movies=df_features.fms_id.nunique()
+    n_movies=df_features.id_tag.nunique()
     print('saving the final feature file')
-    df_features.to_csv(rf'{final_feature_folder}/Final_v3_{n_movies}_entire_manifest.csv')
+    df_features.to_csv(rf'{final_feature_folder}/ImmunoPanel_{n_movies}_entire_manifest.csv')
     return df_features
 
 
