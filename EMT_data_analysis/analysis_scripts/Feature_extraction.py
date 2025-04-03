@@ -9,7 +9,7 @@ from EMT_data_analysis.tools import io, alignment
 
 warnings.filterwarnings("ignore")
 
-def compute_bf_colony_features_all_movies(output_folder, align=True):
+def compute_bf_colony_features_all_movies(df, output_folder, align=True):
     '''
     Computes area of the bright field colony mask at every z position
     and extracts corresponding intensity values from the fluorescence
@@ -17,6 +17,8 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
     mask to the final dataframe that is saved at the end.
     Parameters
     ----------
+    df: pd.DataFrame
+        Data manifest to process
     save_folder: path
         Folder path where feature csv for each movie is stored
 
@@ -24,7 +26,6 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
         Enable alignment of the image using the barcode of the movie
     '''
 
-    df = io.load_imaging_and_segmentation_dataset()
     print(f"Dataset loaded. Shape: {df.shape}.")
 
     for movie_id, df_movie in tqdm(df.groupby('Movie ID')):
@@ -84,8 +85,9 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
 
 if __name__ == '__main__':
 
-    base_results_dir = io.setup_base_directory_name("feature_extraction")
-    compute_bf_colony_features_all_movies(output_folder=base_results_dir)
+    manifest = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7062/manifest.csv', index_col=None)
+    result_dir = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7062'
+    compute_bf_colony_features_all_movies(df=manifest, output_folder=result_dir)
 
 
 
