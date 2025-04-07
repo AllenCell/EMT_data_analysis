@@ -12,10 +12,32 @@ from tqdm import tqdm
 from bioio import BioImage
 from scipy.signal import savgol_filter
 from EMT_data_analysis.tools import io
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
 # %% [markdown]
+
+def import_folder(folder_path):
+    """
+     This function compiles all the intensity metric csvs into a single manifest.
+      Parameters
+    ----------
+    folder_path: Path
+        Path to the folder where all the intensity metric csvs were been saved
+
+    Returns
+    -------
+    df: DataFrame
+        Returns the input DataFrame with 'z_norm' and 'z_bottom' columns """
+
+    df=pd.DataFrame() 
+    for file in Path(folder_path).glob('*.csv'):
+        f1=pd.read_csv(file, index_col=0)
+        f1['id_tag'] = Path(file).name.split('_')[-2] + '_' + f1['scene'].values[0]
+        df=pd.concat([df,f1])
+    return df
+
 def add_bottom_z(df):
     """
     This function adds bottom Z - Zplane corresponding to the glass - defined
