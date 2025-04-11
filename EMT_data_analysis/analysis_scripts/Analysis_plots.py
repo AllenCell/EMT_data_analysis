@@ -3,21 +3,25 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import plotly.express as px
+import kaleido
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 from EMT_data_analysis.tools import io, const
 from EMT_data_analysis.analysis_scripts import plot_tools
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
-figs_dir = io.setup_base_directory_name("figures")
+# figs_dir = io.setup_base_directory_name("figures")
 
-df = io.load_image_analysis_extracted_features(load_from_aws=True)
+# df = io.load_image_analysis_extracted_features(load_from_aws=True)
+df_f = pd.read_csv('/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/7062/ImmunoPanel_entire_manifest.csv', index_col=None)
+figs_dir = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/7062/fig_dir'
 
-df_f = df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
+# df_f = df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
 df_f['Gene']=df_f['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else x)
 # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
-time_interval=int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
+time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
 df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
 
 # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT

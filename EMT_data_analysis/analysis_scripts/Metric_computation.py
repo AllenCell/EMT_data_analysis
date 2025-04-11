@@ -34,7 +34,6 @@ def import_folder(folder_path):
     df=pd.DataFrame() 
     for file in Path(folder_path).glob('*.csv'):
         f1=pd.read_csv(file, index_col=0)
-        f1['id_tag'] = Path(file).name.split('_')[-2] + '_' + f1['scene'].values[0]
         df=pd.concat([df,f1])
     return df
 
@@ -78,7 +77,7 @@ def add_bottom_z(df):
     return df_normalized_z
 
 
-def add_bottom_mip_migration(df_merged):
+def add_bottom_mip(df_merged):
     '''
     This adds area of MIP of bottom 2Z planes to get area at the glass and compute migration time from that.
     
@@ -96,24 +95,24 @@ def add_bottom_mip_migration(df_merged):
     df_mm=pd.DataFrame()
     for id, df_id in tqdm(df_merged.groupby('Movie ID')):
         ar_v,tp=[],[]
-        z_bottom=df_id['Bottom Z plane'].values[0]
 
-        seg_path = df_id['All Cells Mask URL'].values[0]
-
-        img_seg = BioImage(seg_path)
-        l = df_id['Image Size T'].values[0]
+        l = df_id['Timepoint'].max()
         if l>97:
             l=97
 
-        for tm in np.arange(l):
-            img_seg_tl = img_seg.get_image_dask_data("ZYX", T=tm)
+        for t, df_tp in df_id.groupby('Timepoint'):
+            if t > l:
+                break
+            z_bottom=df_tp['Bottom Z plane'].values[0]
+            img_seg = BioImage(df_tp['All Cells Mask URL'].values[0])
+            img_seg_tl = img_seg.get_image_dask_data("ZYX")
             img_z=img_seg_tl[z_bottom:z_bottom+2]
             z_max_proj = np.max(img_z,axis=0)
             img_fh=scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)
         
             ar2=np.count_nonzero(img_fh)
             ar_v.append(ar2)
-            tp.append(tm)
+            tp.append(t)
         df_area=pd.DataFrame(zip(tp,ar_v), columns=['Timepoint','Area at the glass (pixels)'])
         
         raw_values=df_area['Area at the glass (pixels)'].values
@@ -125,7 +124,7 @@ def add_bottom_mip_migration(df_merged):
         df_area['Migration time (h)']=x_p*(30/60)
         df_area['Area at the glass(square micrometer)']=df_area['Area at the glass (pixels)']*(0.271*0.271)
         df_area['Movie ID']=id
-        df_merged_area=pd.merge(df_id,df_area, on=['Movie ID'])
+        df_merged_area=pd.merge(df_id,df_area, on=['Movie ID','Timepoint'])
         df_mm=pd.concat([df_mm,df_merged_area])
 
     return df_mm
@@ -199,66 +198,41 @@ def add_gene_metrics(df_features):
 
     return df_features_addons
 
-def compute_metrics(output_folder):
-    '''
-    This is a master function that implements every function and post processing to save a compiled final manifest to be used with analysis_plots.py
+# %% [markdown]
+## master function to implement the pipeline
 
-    Parameters
-    ----------
-    Imaging_and_segmentation_data: DataFrame
-        Dataframe with imaging and segmentation information for each movie
 
-    all_cells_feature_csvs_folder: Folder path
-        Path to the folder where csvs per movie for the features extracted from all-cells masks is stored
-
-    final_feature_folder: folder path
-        Path to the folder to save the final feature manifest
-    Returns
-    -------
-    df_features_final: DataFrame
-        Returns and saves the final dataframe with all the required metrics fro analysis
-    '''
+def compute_metrics(path_manifest, save_folder, final_feature_folder):
     print('compiling intensity and z features into a single dataframe')
+    df=import_folder(save_folder)
 
-    df = io.load_bf_colony_features()
+    print(df.head())
 
     print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)
 
     print('merging the bottom z information with the colony mask path csv')
-    df_z = df_all_z.groupby('Movie ID')['Bottom Z plane'].agg('first').reset_index()
-    Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset()
-    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Movie ID'])
+    # df_z=df_all_z.groupby('id_tag')['z_bottom'].agg('first').reset_index()
+    # path_manifest['id_tag'] = [f'{barcode}_{pos}-{well}' for barcode, pos, well in zip(path_manifest['Barcode'].values, path_manifest['Position'].values, path_manifest['Well'].values)]
+    df_merged=pd.merge(df_all_z,path_manifest, how='left',on=['Movie ID', 'Timepoint', 'Gene', 'Experimental Condition'])
 
     print('computing area at the glass (bottom 2 z MIP) and migration time')
-    df_mm=add_bottom_mip_migration(df_merged)
+    df_mm=add_bottom_mip(df_merged)
 
     print('merging everything into a single feature manifest')
-    df_features=pd.merge(df_all_z,df_mm, on=['Movie ID','Timepoint'], suffixes=("","_remove"))
+    df_features=pd.merge(df_all_z,df_mm, on=['Movie ID','Z plane','Timepoint'], suffixes=("","_remove"))
     df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
+    df_features.drop(['Unnamed: 0_x', 'Unnamed: 0', 'gene_channel_3', 'gene_channel_4', 'fms_id', 'id_tag', 'Mask_path', 'Unnamed: 0_y'], axis=1, inplace=True, errors='ignore')
 
-    print('adding gene specific metrics...')
-    df_features_addons=add_gene_metrics(df_features)
-    #only including the columns of interest
-    df_features_final=df_features_addons[['Movie ID', 'Experimental Condition', 'Gene',
-       'Single Colony Or Lumenoid At Time of Migration',
-       'Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration',
-       'Timelapse Interval', 'Timepoint', 'Z plane',
-       'Area of all cells mask per Z (pixels)',
-       'Area of all cells mask per Z (square micrometer)',
-       'Mean intensity per Z', 'Total intensity per Z', 'Bottom Z plane',
-       'Normalized Z plane', 'Area at the glass (pixels)',
-       'Area at the glass(square micrometer)', 'Migration time (h)',
-       'Time of max EOMES expression (h)',
-       'Time of inflection of E-cad expression (h)',
-       'Time of half-maximal SOX2 expression (h)']]
 
     print('saving the final feature file')
-    df_features_final.to_csv(output_folder / f"Image_analysis_extracted_features.csv")
+    df_features.to_csv(rf'{final_feature_folder}/ImmunoPanel_entire_manifest.csv', index=False)
+    return df_features
 
 
 # %% [markdown]
-if __name__ == '__main__':
-
-    base_results_dir = io.setup_base_directory_name("metric_computation")
-    df_features_all = compute_metrics(output_folder=base_results_dir)
+## running the pipeline to generate and save feature manifest
+path_manifest=pd.read_csv(r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/manifest.csv')
+save_folder=r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/feature-extraction/'
+final_feature_folder=r'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/7063/'
+df_features=compute_metrics(path_manifest, save_folder, final_feature_folder)
