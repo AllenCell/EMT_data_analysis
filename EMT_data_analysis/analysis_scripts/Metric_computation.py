@@ -232,7 +232,7 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
 
 # %% [markdown]
 ## running the pipeline to generate and save feature manifest
-path_manifest=pd.read_csv(r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/manifest.csv')
-save_folder=r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/feature-extraction/'
-final_feature_folder=r'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/7063/'
+path_manifest=pd.read_csv(r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7158/manifest.csv')
+save_folder=r'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7158/feature-extraction/'
+final_feature_folder=r'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/7158/'
 df_features=compute_metrics(path_manifest, save_folder, final_feature_folder)

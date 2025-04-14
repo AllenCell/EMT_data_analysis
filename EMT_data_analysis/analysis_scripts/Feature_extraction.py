@@ -91,8 +91,9 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
 
 if __name__ == '__main__':
 
-    manifest = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/manifest.csv', index_col=None)
-    result_dir = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7063/feature-extraction'
+    manifest = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7163/manifest.csv', index_col=None)
+    result_dir = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7163/feature-extraction'
+    Path(result_dir).mkdir(parents=True, exist_ok=True)
     compute_bf_colony_features_all_movies(df=manifest, output_folder=result_dir)
 
 
