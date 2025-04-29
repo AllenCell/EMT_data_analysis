@@ -25,7 +25,7 @@ time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Inter
 df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
 
 # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
-df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if 'PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
+df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if x=='2D PLF colony EMT' else 'b.2D EMT' if x=='2D colony EMT' else 'c.3D EMT' if x=='3D lumenoid EMT' else None)
 
 n_filtered_movies=df_f['Movie ID'].nunique()
 print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
@@ -35,6 +35,7 @@ print('Generating plots for Area at the glass for all three conditions and corre
 df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration time (h)':'first'}).reset_index()
 n_a = df_a['Movie ID'].nunique()
 fig,ax = plt.subplots(1,1)
+# for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Movie ID'):
 sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
 plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
 plt.xlabel('Time (hr)', fontsize=14)
@@ -44,15 +45,15 @@ plt.tight_layout()
 plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
 plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.pdf', transparent=True, dpi=600)
 
-plot_tools.plot_examples(
-    df_int = df_a,
-    id_plf = const.EXAMPLE_PLF,
-    id_2d = const.EXAMPLE_2D,
-    id_3d = const.EXAMPLE_3D,
-    gene = "Example",
-    metric = 'Migration time (h)',
-    variable = 'Area at the glass(square micrometer)',
-    figs_dir = figs_dir)
+# plot_tools.plot_examples(
+#     df_int = df_a,
+#     id_plf = const.EXAMPLE_PLF,
+#     id_2d = const.EXAMPLE_2D,
+#     id_3d = const.EXAMPLE_3D,
+#     gene = "Example",
+#     metric = 'Migration time (h)',
+#     variable = 'Area at the glass(square micrometer)',
+#     figs_dir = figs_dir)
 
 df_f = df_f.sort_values('Timepoint (h)')
 # Summarizing the dataframe/manifest to have one line/metric per movie
@@ -65,14 +66,14 @@ fig_mig.update_layout(yaxis_title='Migration time (h)',font=dict(size=18))
 fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_n{n_m}.pdf', scale=2 )
 
 print('...statitsitcal analysis of overall migriation timing between the conditions...')
-x_mig = df_summary['Migration time (h)'][df_summary['Experimental Condition']=='2D PLF colony EMT']
-y_mig = df_summary['Migration time (h)'][df_summary['Experimental Condition']=='2D colony EMT']
-z_mig = df_summary['Migration time (h)'][df_summary['Experimental Condition']=='3D lumenoid EMT']
+x_mig = df_summary['Migration time (h)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]]
+y_mig = df_summary['Migration time (h)'][['2D MG' in val for val in df_summary['Experimental Condition'].values]]
+z_mig = df_summary['Migration time (h)'][['3D MG' in val for val in df_summary['Experimental Condition'].values]]
 
 plot_tools.run_statistics(x_mig,y_mig,z_mig)
 
 print('Generating Box plots for migration timing for each gene in the dataset and fo each condition within that gene (Fig.S3)')
-df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], ['HIST1H2BJ','SOX2','EOMES','CDH1','TJP1'])
+df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
 df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
 fig_mig_g = px.box(df_summary, y='Migration time (h)', x='gene_m', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,40),width=1800, height=600)
 fig_mig_g.update_layout(showlegend=False)
@@ -82,11 +83,12 @@ fig_mig_g.write_image(rf'{figs_dir}/Migration_box_plot_per_gene_all_conditions.p
 
 for g, df_g in df_summary.groupby('Gene'):
     print(f'..statistical analysis for the migration timing per condition for gene={g}')
-    x_mig = df_g['Migration time (h)'][df_g['Experimental Condition']=='2D PLF colony EMT']
-    y_mig = df_g['Migration time (h)'][df_g['Experimental Condition']=='2D colony EMT']
-    z_mig = df_g['Migration time (h)'][df_g['Experimental Condition']=='3D lumenoid EMT']
-
+    x_mig = df_g['Migration time (h)'][['2D PLF' in val for val in df_g['Experimental Condition'].values]]
+    y_mig = df_g['Migration time (h)'][['2D MG' in val for val in df_g['Experimental Condition'].values]]
+    z_mig = df_g['Migration time (h)'][['3D MG' in val for val in df_g['Experimental Condition'].values]]
+        
     plot_tools.run_statistics(x_mig, y_mig, z_mig)
+
 
 print('Generating plots for  mean intensity plots for each gene - Fig.6B, Fig. 6F and Fig 6 J')
 
@@ -102,6 +104,7 @@ for g, d_g in df_int.groupby('Gene'):
     n = d_g['Movie ID'].nunique()
     
     fig,ax = plt.subplots(1,1)
+    # for scn, df_scn in d_g.groupby('Movie ID'):
     sns.lineplot(d_g, x='Timepoint (h)', y='Mean Intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
     plt.ylabel('Mean intensity (a.u.)', fontsize=14)
     plt.xlabel('Time (h)', fontsize=14)
@@ -128,55 +131,56 @@ df_int=df_z.groupby([
     {
         'Total intensity per Z': 'sum',
         'Area of all cells mask per Z (pixels)': 'sum',
-        'Time of max EOMES expression (h)': 'first',
-        'Time of inflection of E-cad expression (h)': 'first',
-        'Time of half-maximal SOX2 expression (h)': 'first'
+        'Time of max expression (h)': 'first',
     }
 ).reset_index()
 df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
 
 # Time of max EOMES expression (h) examples
-plot_tools.plot_examples(
-    df_int = df_int,
-    id_plf = const.EOMES_PLF,
-    id_2d = const.EOMES_2D,
-    id_3d = const.EOMES_3D,
-    gene = "EOMES",
-    figs_dir = figs_dir,
-    metric='Time of max EOMES expression (h)')
+# plot_tools.plot_examples(
+#     df_int = df_int,
+#     id_plf = const.EOMES_PLF,
+#     id_2d = const.EOMES_2D,
+#     id_3d = const.EOMES_3D,
+#     gene = "EOMES",
+#     figs_dir = figs_dir,
+#     metric='Time of max EOMES expression (h)')
 
 # Time of inflection of E-cad expression (h) examples-
-plot_tools.plot_examples(
-    df_int = df_int,
-    id_plf = const.CDH_PLF,
-    id_2d = const.CDH_2D,
-    id_3d = const.CDH_3D,
-    gene = "CDH1",
-    figs_dir = figs_dir,
-    metric='Time of inflection of E-cad expression (h)')
+# plot_tools.plot_examples(
+#     df_int = df_int,
+#     id_plf = const.CDH_PLF,
+#     id_2d = const.CDH_2D,
+#     id_3d = const.CDH_3D,
+#     gene = "CDH1",
+#     figs_dir = figs_dir,
+#     metric='Time of inflection of E-cad expression (h)')
 
 # Time of inflection of SOX expression (h) examples-
-plot_tools.plot_examples(
-    df_int = df_int,
-    id_plf = const.SOX_PLF,
-    id_2d = const.SOX_2D,
-    id_3d = const.SOX_3D,
-    gene = "SOX2",
-    figs_dir = figs_dir,
-    metric = 'Time of half-maximal SOX2 expression (h)')
+# plot_tools.plot_examples(
+#     df_int = df_int,
+#     id_plf = const.SOX_PLF,
+#     id_2d = const.SOX_2D,
+#     id_3d = const.SOX_3D,
+#     gene = "SOX2",
+#     figs_dir = figs_dir,
+#     metric = 'Time of half-maximal SOX2 expression (h)')
 
 print('Generating plots for connected scatter and box plots- Fig.6 D,H, L')
 # Plotting pair-wise connected plots for Time of max EOMES expression (h) and Migration time for EOMES (Fig.6D)
-fig1,ax1 = plot_tools.plot_connected_box_plot(df_summary, 'EOMES', 'Time of max EOMES expression (h)','Migration time (h)')
-fig1.savefig(rf'{figs_dir}/Connected_box_plot_Eomes_time_at_max_EOMES_expression_vs_Migration_hr.pdf', dpi=600)
+for gene, df_gene in df_summary.groupby('Gene'):
+    # for bcode, df_barcode in df_gene.groupby('Plate Barcode'):
+    fig1,ax1 = plot_tools.plot_connected_box_plot(df_gene, gene, 'Time of max expression (h)','Migration time (h)',ylim=[0,50])
+    fig1.savefig(rf'{figs_dir}/Connected_box_plot_{gene}_time_at_max_{gene}_expression_vs_Migration_hr.pdf', dpi=600)
+
 
 # Plotting pair-wise connected plots for Time of inflection of E-cad expression (h) and Migration time for E-Cad (Fig.6H)
-fig2,ax2 = plot_tools.plot_connected_box_plot(df_summary, 'CDH1','Time of inflection of E-cad expression (h)','Migration time (h)')
-fig2.savefig(rf'{figs_dir}/Connected_box_plot_Ecad_time_of_inflection_E_Cad_expression_Migration_hr.pdf', dpi=600)
+# fig2,ax2 = plot_tools.plot_connected_box_plot(df_summary, 'CDH1','Time of inflection of E-cad expression (h)','Migration time (h)')
+# fig2.savefig(rf'{figs_dir}/Connected_box_plot_Ecad_time_of_inflection_E_Cad_expression_Migration_hr.pdf', dpi=600)
 
-# Plotting pair-wise connected plots for Time of half-maximal SOX2 expression (h) and Migration time for SOX2 (Fig.6L)
-fig3,ax3 = plot_tools.plot_connected_box_plot(df_summary, 'SOX2','Time of half-maximal SOX2 expression (h)','Migration time (h)')
-fig3.savefig(rf'{figs_dir}/Connected_box_plot_Sox_time_of_half_maximal_vs_Migration_hr.pdf', dpi=600)
+# # Plotting pair-wise connected plots for Time of half-maximal SOX2 expression (h) and Migration time for SOX2 (Fig.6L)
+# fig3,ax3 = plot_tools.plot_connected_box_plot(df_summary, 'SOX2','Time of half-maximal SOX2 expression (h)','Migration time (h)')
+# fig3.savefig(rf'{figs_dir}/Connected_box_plot_Sox_time_of_half_maximal_vs_Migration_hr.pdf', dpi=600)
 
 '''
 Plotting box plots for Supplementary figure S5 a. timing of expression change relative
@@ -187,22 +191,24 @@ migration (0-time of EMT induction and 1- time of migration)
 print('Generating plots for supplementary Fig.5. Timing of expression change')
 
 # Compiling data for the plots
-df_eomes = df_summary[df_summary.Gene=='EOMES']
-df_eomes['Difference']=df_eomes['Time of max EOMES expression (h)']-df_eomes['Migration time (h)']
-df_eomes['Normalized_metric']=df_eomes['Time of max EOMES expression (h)']/df_eomes['Migration time (h)']
-df_eomes.rename(columns={'Time of max EOMES expression (h)':'gene_metric'}, inplace=True)
+df_comb = []
+for gene, df_gene in df_summary.groupby('Gene'):
+    df_gene['Difference']=df_gene['Time of max expression (h)']-df_gene['Migration time (h)']
+    df_gene['Normalized_metric']=df_gene['Time of max expression (h)']/df_gene['Migration time (h)']
+    df_gene.rename(columns={'Time of max expression (h)':'gene_metric'}, inplace=True)
+    df_comb.append(df_gene)
 
-df_cdh = df_summary[df_summary.Gene=='CDH1']
-df_cdh['Difference']=df_cdh['Time of inflection of E-cad expression (h)']-df_cdh['Migration time (h)']
-df_cdh['Normalized_metric']=df_cdh['Time of inflection of E-cad expression (h)']/df_cdh['Migration time (h)']
-df_cdh.rename(columns={'Time of inflection of E-cad expression (h)':'gene_metric'}, inplace=True)
+# df_cdh = df_summary[df_summary.Gene=='CDH1']
+# df_cdh['Difference']=df_cdh['Time of inflection of E-cad expression (h)']-df_cdh['Migration time (h)']
+# df_cdh['Normalized_metric']=df_cdh['Time of inflection of E-cad expression (h)']/df_cdh['Migration time (h)']
+# df_cdh.rename(columns={'Time of inflection of E-cad expression (h)':'gene_metric'}, inplace=True)
 
-df_sox = df_summary[df_summary.Gene=='SOX2']
-df_sox['Difference']=df_sox['Time of half-maximal SOX2 expression (h)']-df_sox['Migration time (h)']
-df_sox['Normalized_metric']=df_sox['Time of half-maximal SOX2 expression (h)']/df_sox['Migration time (h)']
-df_sox.rename(columns={'Time of half-maximal SOX2 expression (h)':'gene_metric'},inplace=True)
+# df_sox = df_summary[df_summary.Gene=='SOX2']
+# df_sox['Difference']=df_sox['Time of half-maximal SOX2 expression (h)']-df_sox['Migration time (h)']
+# df_sox['Normalized_metric']=df_sox['Time of half-maximal SOX2 expression (h)']/df_sox['Migration time (h)']
+# df_sox.rename(columns={'Time of half-maximal SOX2 expression (h)':'gene_metric'},inplace=True)
 
-df_comb=pd.concat([df_cdh,df_eomes,df_sox])
+df_comb=pd.concat(df_comb)
 df_comb=df_comb.sort_values(['Gene','Condition order for plots'], ascending=[False,True])
 
 # Only plotting for 2D colony EMT and 3D colony EMT conditions
@@ -236,9 +242,9 @@ fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_divided_by_
 print('.......Statistical comparison for gene metric:')
 for g, df_g in df_comb.groupby('Gene'):
     print(f'gene={g}')
-    x = df_g['gene_metric'][df_g['Experimental Condition']=='2D PLF colony EMT']
-    y = df_g['gene_metric'][df_g['Experimental Condition']=='2D colony EMT']
-    z = df_g['gene_metric'][df_g['Experimental Condition']=='3D lumenoid EMT']
+    x = df_g['gene_metric'][['2D PLF' in val for val in df_g['Experimental Condition'].values]]
+    y = df_g['gene_metric'][['2D MG' in val for val in df_g['Experimental Condition'].values]]
+    z = df_g['gene_metric'][['3D MG' in val for val in df_g['Experimental Condition'].values]]
 
     plot_tools.run_statistics(x,y,z)
 
@@ -251,73 +257,73 @@ df_zo_examples = df_zo[df_zo['Movie ID'].isin(const.EXAMPLE_ZO1_IDS)]
 # Generating and saving the heatmaps
 plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir)
 
-print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
+# print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
-df_io = io.load_inside_outside_classification(load_from_aws = True)
+# df_io = io.load_inside_outside_classification(load_from_aws = True)
 
-# Filtering out the movie with additional colony or cells in the FOV and merging with feature manifest for plots
+# # Filtering out the movie with additional colony or cells in the FOV and merging with feature manifest for plots
 
-df_info = df_summary[['Condition order for plots','Movie ID','Gene','Migration time (h)','Bottom Z plane']]
+# df_info = df_summary[['Condition order for plots','Movie ID','Gene','Migration time (h)','Bottom Z plane']]
 
-dfio_merge=pd.merge(df_io, df_info, on='Movie ID')
+# dfio_merge=pd.merge(df_io, df_info, on='Movie ID')
 
-n_movies_io=dfio_merge['Movie ID'].nunique()
-print(f'Total number of movies for which plots are generated={n_movies_io}')
+# n_movies_io=dfio_merge['Movie ID'].nunique()
+# print(f'Total number of movies for which plots are generated={n_movies_io}')
 
-# Grouping the data and getting the fraction of 'True' values in 'Inside' column to get fraction of nuclei inside the basement membrane for each movie
-dfio_grouped=dfio_merge.groupby(['Condition order for plots','Gene','Movie ID','Time hr']).agg({'Inside':'mean', 'Migration time (h)':'first'}).reset_index()
-dfio_grouped['Fraction_outside']=1-dfio_grouped['Inside'] #fraction of nuclei outside the basement membrane
+# # Grouping the data and getting the fraction of 'True' values in 'Inside' column to get fraction of nuclei inside the basement membrane for each movie
+# dfio_grouped=dfio_merge.groupby(['Condition order for plots','Gene','Movie ID','Time hr']).agg({'Inside':'mean', 'Migration time (h)':'first'}).reset_index()
+# dfio_grouped['Fraction_outside']=1-dfio_grouped['Inside'] #fraction of nuclei outside the basement membrane
 
-# Plotting the fraction of nuclei over time (Fig.5G)
-fig,ax=plt.subplots(1,1)
-sns.lineplot(dfio_grouped, x='Time hr', y='Fraction_outside', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi',50), estimator=np.median)
-plt.xlabel('Time (h)', fontsize=16)
-plt.ylim(-0.1,1)
-plt.xlim(left=10)
-plt.ylabel('Fraction of nuclei outside lumen', fontsize=16)
-plt.legend(loc='upper left')
-plt.savefig(fr'{figs_dir}/Fraction_of_nuclei_outside_lumen.pdf', dpi=600, transparent=True)
+# # Plotting the fraction of nuclei over time (Fig.5G)
+# fig,ax=plt.subplots(1,1)
+# sns.lineplot(dfio_grouped, x='Time hr', y='Fraction_outside', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi',50), estimator=np.median)
+# plt.xlabel('Time (h)', fontsize=16)
+# plt.ylim(-0.1,1)
+# plt.xlim(left=10)
+# plt.ylabel('Fraction of nuclei outside lumen', fontsize=16)
+# plt.legend(loc='upper left')
+# plt.savefig(fr'{figs_dir}/Fraction_of_nuclei_outside_lumen.pdf', dpi=600, transparent=True)
 
-# Estimating migration time from inside outside classification
-movie_ids, io_migration_time, migration_time, condition, gene = [], [], [], [], []
-for id, df_id in dfio_grouped.groupby('Movie ID'):
+# # Estimating migration time from inside outside classification
+# movie_ids, io_migration_time, migration_time, condition, gene = [], [], [], [], []
+# for id, df_id in dfio_grouped.groupby('Movie ID'):
    
-    d_filt = df_id[(df_id['Time hr']>=12)&(df_id['Time hr']<=40)]
-    raw = d_filt['Fraction_outside']
-    raw_values = raw.values
-    d_filt['dy2'] = savgol_filter(raw_values,polyorder=2, window_length=30, deriv=2)
-    index_infl = d_filt['dy2'].idxmax()
+#     d_filt = df_id[(df_id['Time hr']>=12)&(df_id['Time hr']<=40)]
+#     raw = d_filt['Fraction_outside']
+#     raw_values = raw.values
+#     d_filt['dy2'] = savgol_filter(raw_values,polyorder=2, window_length=30, deriv=2)
+#     index_infl = d_filt['dy2'].idxmax()
 
-    migration_time.append(df_id['Migration time (h)'].unique()[0])
-    movie_ids.append(id)
-    io_migration_time.append(d_filt['Time hr'][index_infl])
-    condition.append(df_id['Condition order for plots'].unique()[0])
-    gene.append(df_id.Gene.unique()[0])
+#     migration_time.append(df_id['Migration time (h)'].unique()[0])
+#     movie_ids.append(id)
+#     io_migration_time.append(d_filt['Time hr'][index_infl])
+#     condition.append(df_id['Condition order for plots'].unique()[0])
+#     gene.append(df_id.Gene.unique()[0])
 
-df_migration_io = pd.DataFrame(zip(movie_ids, io_migration_time,migration_time, condition, gene), columns=['Movie ID','Migration time IO (h)', 'Migration time (h)','Condition order for plots','Gene'])
+# df_migration_io = pd.DataFrame(zip(movie_ids, io_migration_time,migration_time, condition, gene), columns=['Movie ID','Migration time IO (h)', 'Migration time (h)','Condition order for plots','Gene'])
 
-# Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
-fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-fig_scatter = sns.scatterplot(df_migration_io, x='Migration time (h)', y='Migration time IO (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
-plt.xlim(20,36)
-plt.ylim(20,36)
+# # Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
+# fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+# fig_scatter = sns.scatterplot(df_migration_io, x='Migration time (h)', y='Migration time IO (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+# plt.xlim(20,36)
+# plt.ylim(20,36)
 
-plt.xlabel('Migration time from area at glass (h)', fontsize=16)
-plt.ylabel('Migration time fraction of nuclei outside basement membrane (h)', fontsize=16)
-plt.rcParams.update({'font.size':16})
-plt.savefig(fr'{figs_dir}/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside.pdf', dpi=600, transparent=True)
+# plt.xlabel('Migration time from area at glass (h)', fontsize=16)
+# plt.ylabel('Migration time fraction of nuclei outside basement membrane (h)', fontsize=16)
+# plt.rcParams.update({'font.size':16})
+# plt.savefig(fr'{figs_dir}/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside.pdf', dpi=600, transparent=True)
 
-# Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
-df_io_id = dfio_grouped[dfio_grouped['Movie ID']==const.EXAMPLE_IO_ID]
+# # Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
+# df_io_id = dfio_grouped[dfio_grouped['Movie ID']==const.EXAMPLE_IO_ID]
 
-fig,ax = plt.subplots(1,1,figsize=(8,6))
+# fig,ax = plt.subplots(1,1,figsize=(8,6))
 
-x_io = df_migration_io['Migration time IO (h)'][df_migration_io['Movie ID']==const.EXAMPLE_IO_ID].values[0]
-y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
-ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
-ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
-plt.ylabel(f'Fraction of nuclei outside the lumen', fontsize=16)
-plt.xlabel('Time (hr)', fontsize=16)
-plt.xlim(left=10)
-plt.tight_layout()
-plt.savefig(fr'{figs_dir}/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.pdf', dpi=600, transparent=True)
+# x_io = df_migration_io['Migration time IO (h)'][df_migration_io['Movie ID']==const.EXAMPLE_IO_ID].values[0]
+# y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
+# ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
+# ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
+# plt.ylabel(f'Fraction of nuclei outside the lumen', fontsize=16)
+# plt.xlabel('Time (hr)', fontsize=16)
+# plt.xlim(left=10)
+# plt.tight_layout()
+# plt.savefig(fr'{figs_dir}/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.pdf', dpi=600, transparent=True)

@@ -39,6 +39,8 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         print("Getting raw data...")
         raw_path = df_movie["File Path"].values[0]
         raw_reader = BioImage(raw_path)
+        print(raw_path)
+        print(raw_reader.shape)
     
         # print("Getting colony mask....")
         # seg_path = df_movie["All Cells Mask URL"].values[0]
@@ -52,7 +54,11 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         max_timepoint = df_movie['Timepoint'].max()
 
         for _, df_tp in tqdm(df_movie.iterrows(), total=len(df_movie.index)):
-            raw_img = raw_reader.get_image_dask_data("ZYX", C=1, T=df_tp['Timepoint'])
+            if raw_reader.shape[1] == 1:
+                channel = 0
+            else:
+                channel = 1
+            raw_img = raw_reader.get_image_dask_data("ZYX", C=channel, T=df_tp['Timepoint'])
             raw_img = raw_img.compute() 
                 
             seg_reader = BioImage(df_tp["All Cells Mask URL"])
@@ -89,14 +95,17 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         df_result["Experimental Condition"] = df_movie["Experimental Condition"].values[0]
         df_result.to_csv(out_fn)
 
-if __name__ == '__main__':
-
-    manifest = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7163/manifest.csv', index_col=None)
-    result_dir = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT_EOMES-new-timelapse/7163/feature-extraction'
-    Path(result_dir).mkdir(parents=True, exist_ok=True)
+def main(barcode):
+    csv_dir = Path('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-new-timelapse/')
+    manifest = pd.read_csv(csv_dir / str(barcode) / 'manifest.csv', index_col=None)
+    result_dir = csv_dir / str(barcode) / 'feature-extraction'
+    result_dir.mkdir(parents=True, exist_ok=True)
     compute_bf_colony_features_all_movies(df=manifest, output_folder=result_dir)
 
 
+if __name__ == '__main__':
+    from fire import Fire
+    Fire(main)
 
 
 

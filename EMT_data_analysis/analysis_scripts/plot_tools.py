@@ -156,7 +156,7 @@ def plot_connected_box_plot(df_summary, Gene, column_1_name, column_2_name, ylim
 
     plt.ylim(ylim)
     plt.ylabel(ylabel)
-    plt.title(f'{column_1_name}vs{column_2_name}')
+    plt.title(f'{column_1_name} vs {column_2_name}')
     return fig,axs
 
 def Intensity_over_z(df, figs_dir, color_map='coolwarm'):
