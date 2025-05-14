@@ -35,6 +35,10 @@ def import_folder(folder_path):
     for file in Path(folder_path).glob('*.csv'):
         f1=pd.read_csv(file, index_col=0)
         df=pd.concat([df,f1])
+        
+    df['Gene'] = df['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else x)
+    df['Experimental Condition'] = df['Experimental Condition'].apply(lambda x: '2D PLF colony EMT' if x=='2D PLF EMT 1:60 MG' else '3D lumenoid EMT' if x=='3D MG EMT 1:60 MG' else x)
+
     return df
 
 def add_bottom_z(df):
@@ -55,7 +59,7 @@ def add_bottom_z(df):
     df['Area of all cells mask per Z (square micrometer)']=df['Area of all cells mask per Z (pixels)']*(0.271*0.271)
     area_time=df.groupby(['Movie ID','Z plane'])['Area of all cells mask per Z (square micrometer)'].agg('sum').reset_index()
     file_id, z_bottom=[],[]
-    for id, df_id in tqdm(area_time.groupby('Movie ID')):
+    for id, df_id in area_time.groupby('Movie ID'):
         file_id.append(id)
         df_id=df_id.reset_index()
     
@@ -93,7 +97,7 @@ def add_bottom_mip_migration(df_merged):
         '''
      
     df_mm=pd.DataFrame()
-    for id, df_id in tqdm(df_merged.groupby('Movie ID')):
+    for id, df_id in df_merged.groupby('Movie ID'):
         ar_v,tp=[],[]
 
         l = df_id['Timepoint'].max()
@@ -159,50 +163,13 @@ def add_gene_metrics(df_features):
         #smoothing the mean intensity curve
         df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
         int_max=max(df_id.int_smooth)
-        t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
+        try:
+            t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
+        except:
+            t_max = 0
         Movie_ids.append(id)
         time_max.append(t_max*(30/60))
     df_metrics=pd.DataFrame(zip(Movie_ids, time_max), columns=['Movie ID','Time of max expression (h)'])
-
-    # ######--computing Time of max EOMES expression ------ #####
-    # df_eomes=df_int[(df_int.Gene=='EOMES|TBR2') | (df_int.Gene=='TBR2|EOMES')]
-    # Movie_ids_eomes, time_max_eomes=[],[]
-    # for id, df_id in df_eomes.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #     #smoothing the mean intensity curve
-    #     df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
-    #     int_max=max(df_id.int_smooth)
-    #     t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
-    #     Movie_ids_eomes.append(id)
-    #     time_max_eomes.append(t_max*(30/60))
-    # df_eomes_metrics=pd.DataFrame(zip(Movie_ids_eomes, time_max_eomes), columns=['Movie ID','Time of max EOMES expression (h)'])
-
-    # ######--computing Time of inflection of E-cad expression ------ #####
-
-    # df_cdh=df_int[df_int.Gene=='CDH1']
-    # Movie_ids_cdh, time_inflection_cdh=[],[]
-    # for id, df_id in df_cdh.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #      #smoothing and getting second derivative of the mean intensity curve
-    #     df_id['dy2']=savgol_filter(df_id['mean_intensity'].values,polyorder=2, window_length=40, deriv=2)
-    #     d_filt=df_id[(df_id.Timepoint>=35)&(df_id.Timepoint<=78)]
-    #     index_infl=d_filt['dy2'].idxmin() #identifying hte inflection point
-    #     x_p=df_id['Timepoint'][index_infl]
-    #     time_inflection_cdh.append(x_p*(30/60))
-    #     Movie_ids_cdh.append(id)
-    # df_cdh_metrics=pd.DataFrame(zip(Movie_ids_cdh,time_inflection_cdh), columns=['Movie ID','Time of inflection of E-cad expression (h)'])
-
-    # ######--computing Time of half-maximal SOX2 expression ------ #####
-    # df_sox=df_int[df_int.Gene=='SOX2']
-    # Movie_ids_sox, time_half_maximal_sox=[],[]
-    # for id, df_id in df_sox.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #     df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
-    #     int_50=(max(df_id.int_smooth)+min(df_id.int_smooth))/2
-    #     t_50=min(df_id['Timepoint'][(df_id.int_smooth<=int_50)])
-    #     Movie_ids_sox.append(id)
-    #     time_half_maximal_sox.append(t_50)
-    # df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Movie ID','Time of half-maximal SOX2 expression (h)'])
 
     #merging eomes metrics with feature manifest
     df_features_addons=pd.merge(df_features, df_metrics, on=['Movie ID'], how='left')
@@ -211,7 +178,7 @@ def add_gene_metrics(df_features):
 
 # %% [markdown]
 ## master function to implement the pipeline
-def compute_metrics(path_manifest, save_folder, final_feature_folder):
+def compute_metrics(path_manifest, df, out_csv):
     '''
     This is a master function that implements every function and post processing to save a compiled final manifest to be used with analysis_plots.py
 
@@ -230,34 +197,42 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
     df_features_final: DataFrame
         Returns and saves the final dataframe with all the required metrics fro analysis
     '''
-    print('compiling intensity and z features into a single dataframe')
+    # print('compiling intensity and z features into a single dataframe')
 
-    df=import_folder(save_folder)
-    df = df[df['Timepoint'] <= 97]
-    print(len(df.index))
+    # df=import_folder(save_folder)
     func = lambda x: x.replace('.0','')
     df['Movie ID'] = df['Movie ID'].map(func)
     path_manifest['Movie ID'] = path_manifest['Movie ID'].map(func)
+    job_barcode = path_manifest['Plate Barcode'].values[0]
+    out_csv = Path(out_csv)
 
-    print('computing glass information for normalized z position')
+    if out_csv.exists():
+        # print(f'Metrics already exist for {job_barcode}')
+        df_features_final = pd.read_csv(out_csv, index_col=None)
+    else:
+        df_features_final = None
+
+    # df = pd.concat([df[df['Movie ID'] == m_id] for m_id in path_manifest['Movie ID'].unique()], ignore_index=True)
+    df = df[df['Timepoint'] <= 97]
+    # print(len(df.index))
+    
+    # print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)
-    print(len(df_all_z.index))
+    # print(len(df_all_z.index))
 
-    print('merging the bottom z information with the colony mask path csv')
-    df_z = df_all_z.groupby('Movie ID')['Bottom Z plane'].agg('first').reset_index()
-    df_merged=pd.merge(df_all_z,path_manifest, how='left',on=['Movie ID', 'Timepoint', 'Gene', 'Experimental Condition'])
-    print(len(df_merged.index))
+    # print('merging the bottom z information with the colony mask path csv')
+    # df_all_z = df_all_z.groupby('Movie ID')['Bottom Z plane'].agg('first').reset_index()
+    
+    df_merged=pd.merge(df_all_z,path_manifest, how='left',on=['Movie ID', 'Timepoint'])
 
-    print('computing area at the glass (bottom 2 z MIP) and migration time')
+    # print('computing area at the glass (bottom 2 z MIP) and migration time')
     df_mm=add_bottom_mip_migration(df_merged)
-    print(len(df_mm.index))
 
-    print('merging everything into a single feature manifest')
+    # print('merging everything into a single feature manifest')
     df_features=pd.merge(df_all_z,df_mm, on=['Movie ID','Timepoint','Z plane'], suffixes=("","_remove"), how='left')
     df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
-    print(len(df_features.index))
 
-    print('adding gene specific metrics...')
+    # print('adding gene specific metrics...')
     df_features_addons=add_gene_metrics(df_features)
     #only including the columns of interest
     features = ['Movie ID', 'Experimental Condition', 'Gene',
@@ -271,26 +246,94 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
        'Area at the glass(square micrometer)', 'Migration time (h)',
        'Time of max expression (h)']
     features = [feat for feat in features if feat in df_features_addons.columns]
-    df_features_final=df_features_addons[features]
-    print(len(df_features_final.index))
+    
+    if df_features_final is None:
+        df_features_final=df_features_addons[features]
+    else:
+        df_features_final = pd.concat([df_features_final,df_features_addons[features]], ignore_index=True)
+    
+    # print(len(df_features_final.index))
 
-    print('saving the final feature file')
-    Path(final_feature_folder).mkdir(parents=True, exist_ok=True)
-    df_features_final.to_csv(Path(final_feature_folder) / f"Image_analysis_extracted_features.csv", index=False)
+    # print('saving the final feature file')
+    Path(out_csv.parent).mkdir(parents=True, exist_ok=True)
+    df_features_final.to_csv(out_csv, index=False)
+    print(job_barcode, ' saved to ', out_csv)
+    return
 
 
 
 # %% [markdown]
 ## running the pipeline to generate and save feature manifest
-def main(barcode):
-    barcode = '3500005829_4'
-    path_manifest=pd.read_csv(f'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-Quilt/{barcode}/manifest.csv')
-    save_folder=f'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-Quilt/{barcode}/feature-extraction/'
-    gene = path_manifest['Gene'].values[0]
-    final_feature_folder=f'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/{gene}/{barcode}/'
-    Path(final_feature_folder).mkdir(parents=True, exist_ok=True)
-    df_features=compute_metrics(path_manifest, save_folder, final_feature_folder)
+def main():
+    dataset_manifest=pd.read_csv(f'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-new-timelapse/final_new_release_April_24_w_raw_acm.csv')
+    dataset_manifest['Movie ID'] = dataset_manifest.apply(lambda x: x['Plate Barcode'] + '_P' + str(int(x['Position Index'])) + '-' + x['Well Label'], axis=1)
+
+    barcode_dir = Path('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-new-timelapse/metric')
+    tasks = []
+    for csv_dir in tqdm(barcode_dir.iterdir(), desc='Compiling jobs'):
+        if not csv_dir.is_dir():
+            continue
+
+        feature_dir = csv_dir / 'feature-extraction'
+        df_features = pd.concat([pd.read_csv(fn,index_col=None) for fn in feature_dir.glob('*.csv')], ignore_index=True)
+        func = lambda x: x.replace('.0','')
+        df_features['Movie ID'] = df_features['Movie ID'].map(func)
+        df_features['Gene'] = df_features['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else 'H2B' if 'H2B' in x else x)
+        df_features['Experimental Condition'] = df_features['Experimental Condition'].apply(lambda x: '2D PLF colony EMT' if x=='2D PLF EMT 1:60 MG' else '3D lumenoid EMT' if x=='3D MG EMT 1:60 MG' else '2D colony EMT' if x=='2D MG EMT 1:60 MG' else x)
+
+        
+        gene = df_features['Gene'].unique()[0]
+        barcode_abrv = csv_dir.name
+        out_csv = Path(f'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/{gene}/{barcode_abrv}/Image_analysis_extracted_features_final.csv')
+        if out_csv.exists():
+            df_complete = pd.read_csv(out_csv, index_col=None)
+            mov_complete = df_complete['Movie ID'].unique()
+            mov_todo = [mov for mov in df_features['Movie ID'].unique() if mov not in mov_complete]
+            if len(mov_todo)==0:
+                print('No movies to process for ', barcode_abrv)
+                continue
+            df_features = pd.concat([df_features[df_features['Movie ID']==m_id] for m_id in mov_todo], ignore_index=True)
+        movie_ids = df_features['Movie ID'].unique()
+        
+        print('\n', len(movie_ids), ' timelapses to do in barcode ', barcode_abrv)
+        df_barcode = pd.concat([dataset_manifest[dataset_manifest['Movie ID']==m_id] for m_id in movie_ids], ignore_index=True)
+        print(len(df_barcode['Movie ID']), ' scenes in master file')
+        if len(df_barcode['Movie ID'])==0:
+            continue
+
+        df_features = pd.concat([df_features[df_features['Movie ID']==m_id] for m_id in df_barcode['Movie ID'].unique()])
+        df_tps = []
+        for _, row in df_barcode.iterrows():
+            seg_path = Path(row['ACM_path'])
+            for seg_fn in seg_path.glob('*.tif'):
+                tp = pd.DataFrame(row.copy(deep=True)).transpose()
+                tp['Timepoint'] = int(seg_fn.stem.split('_')[-1])
+                tp['All Cells Mask URL'] = seg_fn
+                df_tps.append(tp)
+        df_tps = pd.concat(df_tps, ignore_index=True)
+
+        tasks.append((
+            df_tps, 
+            df_features,
+            out_csv
+        ))
+
+    # for task in tasks:
+    #     compute_metrics(*task)
+
+    # return
+
+    import traceback
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=40) as executor:
+        futures = [executor.submit(compute_metrics, *task) for task in tasks]
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Barcodes"):
+            try:
+                _ = future.result()
+            except Exception as e:
+                print(f"Error processing timepoint: {e}")
+                print(traceback.format_exc())
+
 
 if __name__ == '__main__':
-    from fire import Fire
-    Fire(main)
+    main()

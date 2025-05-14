@@ -15,17 +15,24 @@ warnings.filterwarnings("ignore")
 # figs_dir = io.setup_base_directory_name("figures")
 
 # df = io.load_image_analysis_extracted_features(load_from_aws=True)
-df_f = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-new-timelapse/full_dataset.csv', index_col=None)
-figs_dir = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/fig_dir'
+df = pd.read_csv('/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/filtered_outliers-maxArea/outliers.csv', index_col=None)
+figs_dir = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/filtered_outliers-maxArea/outliers_graphs'
+Path(figs_dir).mkdir(parents=True, exist_ok=True)
 
-# df_f = df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
-df_f['Gene']=df_f['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else x)
+df_f = df[(df['Single Colony Or Lumenoid At Time of Migration']==True)&(df['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration'])]
+
+df_f['Experimental Condition'].replace('',np.nan, inplace=True)
+df_f.dropna(subset=['Experimental Condition'], inplace=True)
+
+df_f['Experimental Condition'] = df_f['Experimental Condition'].apply(lambda x: x.replace('2D MG EMT 1:60 MG','2D colony EMT').replace('2D PLF EMT 1:60 MG', '2D PLF colony EMT').replace('3D MG EMT 1:60 MG', '3D lumenoid EMT'))
+df_f = df_f[(df_f['Experimental Condition']=='2D PLF colony EMT') | (df_f['Experimental Condition']=='2D colony EMT') | (df_f['Experimental Condition']=='3D lumenoid EMT')]
+df_f['Gene']=df_f['Gene'].apply(lambda x: 'EOMES' if 'EOMES' in x else 'H2B' if 'H2B' in x else x)
 # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
 time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
 df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
 
 # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
-df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if x=='2D PLF colony EMT' else 'b.2D EMT' if x=='2D colony EMT' else 'c.3D EMT' if x=='3D lumenoid EMT' else None)
+df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
 
 n_filtered_movies=df_f['Movie ID'].nunique()
 print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
@@ -248,14 +255,14 @@ for g, df_g in df_comb.groupby('Gene'):
 
     plot_tools.run_statistics(x,y,z)
 
-print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
+# print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
 # Filtering the dataset to only ZO1 data
-df_zo = df_f[df_f.Gene=='TJP1']
+# df_zo = df_f[df_f.Gene=='TJP1']
 
-df_zo_examples = df_zo[df_zo['Movie ID'].isin(const.EXAMPLE_ZO1_IDS)]
+# df_zo_examples = df_zo[df_zo['Movie ID'].isin(const.EXAMPLE_ZO1_IDS)]
 
 # Generating and saving the heatmaps
-plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir)
+# plot_tools.Intensity_over_z(df_zo, figs_dir=figs_dir)
 
 # print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
