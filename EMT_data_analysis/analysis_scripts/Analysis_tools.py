@@ -11,6 +11,10 @@ import scikit_posthocs as sp
 from scipy.stats import pearsonr
 import statsmodels.api as sm
 
+# Set font to be Arial and configure text in figures to be editable in Adobe Illustrator
+plt.rcParams["pdf.fonttype"] = 42
+plt.rcParams["font.family"] = "Arial"
+
 warnings.filterwarnings("ignore")
 
 DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv',
@@ -159,7 +163,7 @@ def plot_migration_timing_h2b(df_summary, figs_dir, out_type):
 def plot_migration_timing_by_gene(df_summary, figs_dir, out_type):
     """
     Generates box plots for migration timing for each gene in the dataset and for each condition within that gene
-    
+
     Parameters:
     -----------
     df_summary : pd.DataFrame
