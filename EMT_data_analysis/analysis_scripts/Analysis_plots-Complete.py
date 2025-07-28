@@ -13,6 +13,8 @@ import scikit_posthocs as sp
 from scipy.stats import f_oneway, pearsonr
 import statsmodels.api as sm
 
+print("test")
+
 warnings.filterwarnings("ignore")
 
 # figs_dir = io.setup_base_directory_name("figures")
