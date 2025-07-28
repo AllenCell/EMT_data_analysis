@@ -370,6 +370,26 @@ fig_difference.update_layout(xaxis_title='Cell lines', yaxis_title='Time of expr
 fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
 fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_divided_by_migration_time_FigS5c.{out_type}', scale=2 )
 
+metric_dict = {
+    'EOMES':'Time of max EOMES expression (h)',
+    'TBXT':'Time of max TBXT expression (h)',
+    'CDH1':'Time of inflection of E-cad expression (h)',
+    'SOX2':'Time of half-maximal SOX2 expression (h)'
+}
+
+for g, df_g in df_comb.groupby('Gene'):
+    fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+    fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Time (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+    plt.xlim(10,50)
+    plt.ylim(10,50)
+
+    plt.title(f'{g}\n{metric_dict[g]} vs Migration Time (h)')
+    plt.xlabel(metric_dict[g], fontsize=16)
+    plt.ylabel('Migration Time (h)', fontsize=16)
+    plt.rcParams.update({'font.size':16})
+    plt.savefig(fr'{figs_dir}/Scatter_plot_between_{g}_metric_and_migration_time.{out_type}', dpi=600)
+
+
 print('\n\n\n.......Statistical comparison for gene metric:')
 for g, df_g in df_comb.groupby('Gene'):
     print(f'gene={g}')
