@@ -243,7 +243,8 @@ plot_tools.plot_examples(
     id_3d = const.EOMES_3D,
     gene = "EOMES",
     figs_dir = figs_dir+'/Individual_Examples',
-    metric='Time of max EOMES expression (h)')
+    metric='Time of max EOMES expression (h)',
+    out_type=out_type)
 
 # Time of max TBXT expression (h) examples
 plot_tools.plot_examples(
@@ -253,9 +254,11 @@ plot_tools.plot_examples(
     id_3d = const.TBXT_3D,
     gene = "TBXT",
     figs_dir = figs_dir+'/Individual_Examples',
-    metric='Time of max TBXT expression (h)')
+    metric='Time of max TBXT expression (h)',
+    out_type=out_type)
 
 # Time of inflection of E-cad expression (h) examples-
+# import pdb; pdb.set_trace()
 plot_tools.plot_examples(
     df_int = df_int,
     id_plf = const.CDH_PLF,
@@ -263,7 +266,8 @@ plot_tools.plot_examples(
     id_3d = const.CDH_3D,
     gene = "CDH1",
     figs_dir = figs_dir+'/Individual_Examples',
-    metric='Time of inflection of E-cad expression (h)')
+    metric='Time of inflection of E-cad expression (h)',
+    out_type=out_type)
 
 # Time of inflection of SOX expression (h) examples-
 plot_tools.plot_examples(
@@ -273,7 +277,8 @@ plot_tools.plot_examples(
     id_3d = const.SOX_3D,
     gene = "SOX2",
     figs_dir = figs_dir+'/Individual_Examples',
-    metric = 'Time of half-maximal SOX2 expression (h)')
+    metric = 'Time of half-maximal SOX2 expression (h)',
+    out_type=out_type)
 
 
 

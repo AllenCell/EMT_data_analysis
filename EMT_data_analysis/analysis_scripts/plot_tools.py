@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from EMT_data_analysis.tools import const
 
-def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable='Mean Intensity'):
+def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable='Mean Intensity', out_type='pdf'):
     '''
     This function  plots one example for individual trajectories of mean intensity over time for each condition to represent how the gene metrics 
     (time at max EOMES expression, Time at inflection of E-Cad loss and Time at half maximal loss of SOX2 expression) were estimated.
@@ -67,7 +67,7 @@ def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable=
 
     plt.xlim(-1,50)
     plt.tight_layout()
-    plt.savefig(rf'{figs_dir}/Example_{gene}_{metric}.pdf', dpi=600, transparent=True)
+    plt.savefig(rf'{figs_dir}/Example_{gene}_{metric}.{out_type}', dpi=600, transparent=True)
 
 def run_statistics (x,y,z):
     '''
