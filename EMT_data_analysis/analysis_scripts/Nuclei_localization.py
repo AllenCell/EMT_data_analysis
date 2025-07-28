@@ -11,6 +11,7 @@ from shutil import rmtree
 import pyvista as pv
 import trimesh
 import point_cloud_utils as pcu
+import pymeshfix as mf
 
 from bioio import BioImage
 
@@ -144,10 +145,45 @@ def localize_for_timepoint(
         transform = transform.inverse
 
     # convert 2d surface mesh into an enclosed 3d mesh
+    # vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
+    # vert_up = np.zeros_like(vert)
+    # np.copyto(vert_up, vert)
+    # vert_up[:, 2] = max(vert[:,2])
+    # face_up = np.zeros_like(faces)
+    # np.copyto(face_up, faces)
+
+    # mesh = trimesh.Trimesh(vertices=vert, faces=faces)
+    # roof = trimesh.Trimesh(vertices=vert_up, faces=face_up)
+    # mesh_conc = trimesh.util.concatenate(mesh, roof)
+
+    # vert, faces = mesh_conc.vertices, mesh_conc.faces
+
+    # vw, fw = pcu.make_mesh_watertight(vert, faces, 10_000)
+
+    # mesh = trimesh.Trimesh(vertices=vw, faces=fw)
+
+    # mfix = mf.MeshFix(pv.wrap(mesh))
+    # mfix.repair()
+    # mesh = pv.wrap(mfix.mesh)
+    # mesh = trimesh.Trimesh(
+    #     vertices=mesh.points, 
+    #     faces=mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
+    # )
+    mf_holes = mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
+    outline_verts = mf_holes.points
+    top = np.percentile(outline_verts[:,2], 99)
+    for i in range(outline_verts.shape[0]):
+        vert = outline_verts[i]
+        mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
+        new_vert = np.array([vert[0], vert[1], max([vert[2], top])])
+        
+        v_idx = mesh.find_closest_point(vert)
+        mesh.points[v_idx] = new_vert
+
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
     vert_up = np.zeros_like(vert)
     np.copyto(vert_up, vert)
-    vert_up[:, 2] = max(vert[:,2])
+    vert_up[:, 2] = max(vert[:,2])*.9
     face_up = np.zeros_like(faces)
     np.copyto(face_up, faces)
 
@@ -157,7 +193,7 @@ def localize_for_timepoint(
 
     vert, faces = mesh_conc.vertices, mesh_conc.faces
 
-    vw, fw = pcu.make_mesh_watertight(vert, faces, 10_000)
+    vw, fw = pcu.make_mesh_watertight(vert, faces, 10000)
 
     mesh = trimesh.Trimesh(vertices=vw, faces=fw)
 
@@ -190,9 +226,15 @@ def localize_for_timepoint(
             prop.centroid[1],
             prop.centroid[2] * scale
         ]
+
+        try:
+            contains = rayCaster.contains_points([centroid])
+        except:
+            # nucData['Inside'].append(None)
+            continue
         
         # check if centroid is inside the mesh
-        if rayCaster.contains_points([centroid])[0]:
+        if contains[0]:
             nucData['Inside'].append(True)
         else:
             nucData['Inside'].append(False)

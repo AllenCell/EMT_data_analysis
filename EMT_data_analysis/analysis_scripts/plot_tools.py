@@ -39,9 +39,9 @@ def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable=
     -------
     saves plots in the figs_dir'''
 
-    df_plf=df_int[df_int['Movie ID']==id_plf]
-    df_2d=df_int[df_int['Movie ID']==id_2d]
-    df_3d=df_int[df_int['Movie ID']==id_3d]
+    df_plf=df_int[df_int['Data ID']==id_plf]
+    df_2d=df_int[df_int['Data ID']==id_2d]
+    df_3d=df_int[df_int['Data ID']==id_3d]
 
     fig,ax=plt.subplots(1,1,figsize=(8,6))
 
