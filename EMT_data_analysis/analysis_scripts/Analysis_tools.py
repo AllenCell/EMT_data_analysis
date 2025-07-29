@@ -17,16 +17,38 @@ plt.rcParams["font.family"] = "Arial"
 
 warnings.filterwarnings("ignore")
 
-DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv',
-FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
-OUT_TYPE = 'svg'
 
-def load_and_prep_datasets(
-    data_path=DATA_PATH,
-    figs_dir=FIGS_DIR,
-):
+def run_all_analyses():
+    """
+    Run all analysis functions
+    """
+
+    DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv',
+    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
+    OUT_TYPE = 'svg'
+
+
+    df, df_f, df_summary = load_and_prep_datasets(data_path=DATA_PATH, figs_dir=FIGS_DIR)
+
+    plot_area_at_glass_all_data(df_f, FIGS_DIR, OUT_TYPE)
+    plot_area_at_glass_h2b(df_f, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_all_data(df_summary, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_h2b(df_summary, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_by_gene(df_summary, FIGS_DIR, OUT_TYPE)
+    plot_mean_intensity_by_gene(df_f, FIGS_DIR, OUT_TYPE)
+    plot_gene_expression_connected_boxplots(df_f, df_summary, FIGS_DIR, OUT_TYPE)
+    plot_gene_expression_experiments(df_summary, FIGS_DIR, OUT_TYPE)
+    plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
+    analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
+    plot_inside_outside_migration_timing(df_f, df_summary, FIGS_DIR, OUT_TYPE)
+    plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)
+
+
+def load_and_prep_datasets(data_path, figs_dir):
 
     df = pd.read_csv(data_path, index_col=None)
+
+    # Create the directory for figures if it does not exist
     Path(figs_dir).mkdir(parents=True, exist_ok=True)
 
     # check if/why we have nan values here
@@ -777,7 +799,7 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df.sort_values("Label")
 
 
-def _create_heatmap(data: pd.DataFrame, title: str) -> None:
+def _create_heatmap(data: pd.DataFrame, title: str, figs_dir: str, output_type: str) -> None:
     """
     Helper function for making immunolabeling heatmap
     Create heatmap of normalized intensities for each time for each Label
@@ -818,11 +840,10 @@ def _create_heatmap(data: pd.DataFrame, title: str) -> None:
 
     # Save figure in vector formats
     plt.tight_layout()
-    plt.savefig(f"{title}.pdf", format="pdf")
-    plt.savefig(f"{title}.svg", format="svg")
+    plt.savefig(f"{figs_dir}/{title}", format=output_type)
 
 
-def plot_immunolabeling_heatmap():
+def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     """
     Function to plot immunolabeling heatmap from a dataset
 
@@ -832,6 +853,14 @@ def plot_immunolabeling_heatmap():
     3. Applies min-max normalization to report intensities over time in 0-100 range
     It then sorts this data by custom label and condition orders, and creates a heatmap
     of the final normalized intensities for each time point for each condition and label.
+
+    Parameters:
+    ----------
+
+    figs_dir : str
+        Directory where the figures will be saved
+    output_type : str
+        File type for the output figures (e.g. 'svg', 'png')
     """
 
     # Load dataset 
@@ -851,6 +880,6 @@ def plot_immunolabeling_heatmap():
     df_sort = _sort_dataframe(df_final)
     
     # Create heatmap of the final intensities for each time for each Label
-    _create_heatmap(df_sort, title="immuno_heatmap")
+    _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
 
