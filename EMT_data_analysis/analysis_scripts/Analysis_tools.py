@@ -17,13 +17,14 @@ plt.rcParams["font.family"] = "Arial"
 
 warnings.filterwarnings("ignore")
 
-
+# TODO  I assume this will live somewhere else eventually but placed this here for now
+# to test that the functions all run
 def run_all_analyses():
     """
     Run all analysis functions
     """
 
-    DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv',
+    DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv'
     MMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
     MMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
@@ -34,7 +35,7 @@ def run_all_analyses():
         mmp_data_path = MMP_DATA_PATH, 
         mmp_mig_data_path = MMP_MIG_DATA_PATH,
         figs_dir=FIGS_DIR)
-
+    
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -49,7 +50,7 @@ def run_all_analyses():
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df_mmp, df_mmp_mig, FIGS_DIR)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
-    plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)
+    # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
 
 
 def load_and_prep_datasets(
@@ -78,8 +79,8 @@ def load_and_prep_datasets(
     # n_filtered_movies=df_f['Movie ID'].nunique()
     # print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
 
-    df_MMP = pd.read_csv('/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv', index_col=None)
-    df_MMP_mig = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv', index_col=None)
+    df_MMP = pd.read_csv(mmp_data_path, index_col=None)
+    df_MMP_mig = pd.read_csv(mmp_mig_data_path, index_col=None)
 
     return df, df_MMP, df_MMP_mig
 
@@ -153,7 +154,7 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     """
 
     # Set up dataset
-    df_f = create_df_f(df_f)
+    df_f = create_df_f(df)
     df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
     df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
     n_a = df_a['Movie ID'].nunique()
@@ -915,6 +916,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     df_info = df_summary[[
         'Condition order for plots',
         'Movie ID',
+        'Data ID',
         'Gene',
         'Migration Time (h)',
         'Migration Time InOut (h)', 
@@ -936,6 +938,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         'Condition order for plots',
         'Gene',
         'Movie ID',
+        'Data ID',
         'Time hr'
     ]).agg({
         'Inside':'mean', 
@@ -958,7 +961,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
 
     dfio_scatter=dfio_merge.groupby([
         'Condition order for plots',
-        'Movie ID',
+        'Data ID',
     ]).agg({
         'Migration Time (h)':'first', 
         'Migration Time InOut (h)':'first'
@@ -1178,4 +1181,7 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     # Create heatmap of the final intensities for each time for each Label
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
+# TODO  I assume this will live somewhere else eventually but placed this here for now
+# to test that the functions all run
+run_all_analyses()
 
