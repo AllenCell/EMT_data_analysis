@@ -17,26 +17,6 @@ from pathlib import Path
 warnings.filterwarnings("ignore")
 
 # %% [markdown]
-
-def import_folder(folder_path):
-    """
-     This function compiles all the intensity metric csvs into a single manifest.
-      Parameters
-    ----------
-    folder_path: Path
-        Path to the folder where all the intensity metric csvs were been saved
-
-    Returns
-    -------
-    df: DataFrame
-        Returns the input DataFrame with 'z_norm' and 'z_bottom' columns """
-
-    df=pd.DataFrame() 
-    for file in Path(folder_path).glob('*.csv'):
-        f1=pd.read_csv(file, index_col=0)
-        df=pd.concat([df,f1])
-    return df
-
 def add_bottom_z(df):
     """
     This function adds bottom Z - Zplane corresponding to the glass - defined
@@ -150,68 +130,72 @@ def add_gene_metrics(df_features):
     df_z=df_features[(df_features['Normalized Z plane']>=0) & (df_features['Normalized Z plane']<10)]
 
     #Grouping by condition and gene and each movie to get mean itnensity over time for each movie
-    df_int=df_z.groupby(['Experimental Condition','Gene','Movie ID','Timepoint']).agg({'Total intensity per Z':'sum','Area at the glass (pixels)':'sum'}).reset_index()
-    df_int['mean_intensity']=df_int['Total intensity per Z']/df_int['Area at the glass (pixels)']
+    df_int=df_z.groupby(['Experimental Condition','Gene','Movie ID','Timepoint']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
+    df_int['mean_intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
 
-    Movie_ids, time_max=[],[]
-    for id, df_id in df_int.groupby('Movie ID'):
+    ######--computing Time of max EOMES expression ------ #####
+    df_eomes=df_int[df_int.Gene=='EOMES']
+    Movie_ids_eomes, time_max_eomes=[],[]
+    for id, df_id in df_eomes.groupby('Movie ID'):
         df_id=df_id.sort_values('Timepoint')
         #smoothing the mean intensity curve
         df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
         int_max=max(df_id.int_smooth)
         t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
-        Movie_ids.append(id)
-        time_max.append(t_max*(30/60))
-    df_metrics=pd.DataFrame(zip(Movie_ids, time_max), columns=['Movie ID','Time of max expression (h)'])
+        Movie_ids_eomes.append(id)
+        time_max_eomes.append(t_max*(30/60))
+    df_eomes_metrics=pd.DataFrame(zip(Movie_ids_eomes, time_max_eomes), columns=['Movie ID','Time of max EOMES expression (h)'])
 
-    # ######--computing Time of max EOMES expression ------ #####
-    # df_eomes=df_int[(df_int.Gene=='EOMES|TBR2') | (df_int.Gene=='TBR2|EOMES')]
-    # Movie_ids_eomes, time_max_eomes=[],[]
-    # for id, df_id in df_eomes.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #     #smoothing the mean intensity curve
-    #     df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
-    #     int_max=max(df_id.int_smooth)
-    #     t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
-    #     Movie_ids_eomes.append(id)
-    #     time_max_eomes.append(t_max*(30/60))
-    # df_eomes_metrics=pd.DataFrame(zip(Movie_ids_eomes, time_max_eomes), columns=['Movie ID','Time of max EOMES expression (h)'])
+    ######--computing Time of max TBXT expression ------ #####
+    print('computing TBXT expression')
+    df_tbxt=df_int[df_int.Gene=='TBXT']
+    Movie_ids_tbxt, time_max_tbxt=[],[]
+    for id, df_id in df_tbxt.groupby('Movie ID'):
+        df_id=df_id.sort_values('Timepoint')
+        #smoothing the mean intensity curve
+        df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
+        int_max=max(df_id.int_smooth)
+        t_max=df_id['Timepoint'][df_id.int_smooth==int_max].values[0]
+        Movie_ids_tbxt.append(id)
+        time_max_tbxt.append(t_max*(30/60))
+    df_tbxt_metrics=pd.DataFrame(zip(Movie_ids_tbxt, time_max_tbxt), columns=['Movie ID','Time of max TBXT expression (h)'])
 
-    # ######--computing Time of inflection of E-cad expression ------ #####
+    ######--computing Time of inflection of E-cad expression ------ #####
 
-    # df_cdh=df_int[df_int.Gene=='CDH1']
-    # Movie_ids_cdh, time_inflection_cdh=[],[]
-    # for id, df_id in df_cdh.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #      #smoothing and getting second derivative of the mean intensity curve
-    #     df_id['dy2']=savgol_filter(df_id['mean_intensity'].values,polyorder=2, window_length=40, deriv=2)
-    #     d_filt=df_id[(df_id.Timepoint>=35)&(df_id.Timepoint<=78)]
-    #     index_infl=d_filt['dy2'].idxmin() #identifying hte inflection point
-    #     x_p=df_id['Timepoint'][index_infl]
-    #     time_inflection_cdh.append(x_p*(30/60))
-    #     Movie_ids_cdh.append(id)
-    # df_cdh_metrics=pd.DataFrame(zip(Movie_ids_cdh,time_inflection_cdh), columns=['Movie ID','Time of inflection of E-cad expression (h)'])
+    df_cdh=df_int[df_int.Gene=='CDH1']
+    Movie_ids_cdh, time_inflection_cdh=[],[]
+    for id, df_id in df_cdh.groupby('Movie ID'):
+        df_id=df_id.sort_values('Timepoint')
+         #smoothing and getting second derivative of the mean intensity curve
+        df_id['dy2']=savgol_filter(df_id['mean_intensity'].values,polyorder=2, window_length=40, deriv=2)
+        d_filt=df_id[(df_id.Timepoint>=35)&(df_id.Timepoint<=78)]
+        index_infl=d_filt['dy2'].idxmin() #identifying hte inflection point
+        x_p=df_id['Timepoint'][index_infl]
+        time_inflection_cdh.append(x_p*(30/60))
+        Movie_ids_cdh.append(id)
+    df_cdh_metrics=pd.DataFrame(zip(Movie_ids_cdh,time_inflection_cdh), columns=['Movie ID','Time of inflection of E-cad expression (h)'])
 
-    # ######--computing Time of half-maximal SOX2 expression ------ #####
-    # df_sox=df_int[df_int.Gene=='SOX2']
-    # Movie_ids_sox, time_half_maximal_sox=[],[]
-    # for id, df_id in df_sox.groupby('Movie ID'):
-    #     df_id=df_id.sort_values('Timepoint')
-    #     df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
-    #     int_50=(max(df_id.int_smooth)+min(df_id.int_smooth))/2
-    #     t_50=min(df_id['Timepoint'][(df_id.int_smooth<=int_50)])
-    #     Movie_ids_sox.append(id)
-    #     time_half_maximal_sox.append(t_50)
-    # df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Movie ID','Time of half-maximal SOX2 expression (h)'])
+    ######--computing Time of half-maximal SOX2 expression ------ #####
+    df_sox=df_int[df_int.Gene=='SOX2']
+    Movie_ids_sox, time_half_maximal_sox=[],[]
+    for id, df_id in df_sox.groupby('Movie ID'):
+        df_id=df_id.sort_values('Timepoint')
+        df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
+        int_50=(max(df_id.int_smooth.values[0])+min(df_id.int_smooth))/2
+        t_50=min(df_id['Timepoint'][(df_id.int_smooth<=int_50)])
+        Movie_ids_sox.append(id)
+        time_half_maximal_sox.append(t_50)
+    df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Movie ID','Time of half-maximal SOX2 expression (h)'])
 
     #merging eomes metrics with feature manifest
+    df_metrics = pd.concat([df_eomes_metrics, df_tbxt_metrics, df_cdh_metrics, df_sox_metrics], ignore_index=True)
     df_features_addons=pd.merge(df_features, df_metrics, on=['Movie ID'], how='left')
 
     return df_features_addons
 
 # %% [markdown]
 ## master function to implement the pipeline
-def compute_metrics(path_manifest, save_folder, final_feature_folder):
+def compute_metrics(output_folder):
     '''
     This is a master function that implements every function and post processing to save a compiled final manifest to be used with analysis_plots.py
 
@@ -232,12 +216,7 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
     '''
     print('compiling intensity and z features into a single dataframe')
 
-    df=import_folder(save_folder)
-    df = df[df['Timepoint'] <= 97]
-    print(len(df.index))
-    func = lambda x: x.replace('.0','')
-    df['Movie ID'] = df['Movie ID'].map(func)
-    path_manifest['Movie ID'] = path_manifest['Movie ID'].map(func)
+    df = io.load_bf_colony_features()
 
     print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)
@@ -245,8 +224,8 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
 
     print('merging the bottom z information with the colony mask path csv')
     df_z = df_all_z.groupby('Movie ID')['Bottom Z plane'].agg('first').reset_index()
-    df_merged=pd.merge(df_all_z,path_manifest, how='left',on=['Movie ID', 'Timepoint', 'Gene', 'Experimental Condition'])
-    print(len(df_merged.index))
+    Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset()
+    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Movie ID'])
 
     print('computing area at the glass (bottom 2 z MIP) and migration time')
     df_mm=add_bottom_mip_migration(df_merged)
@@ -275,22 +254,11 @@ def compute_metrics(path_manifest, save_folder, final_feature_folder):
     print(len(df_features_final.index))
 
     print('saving the final feature file')
-    Path(final_feature_folder).mkdir(parents=True, exist_ok=True)
-    df_features_final.to_csv(Path(final_feature_folder) / f"Image_analysis_extracted_features.csv", index=False)
+    df_features_final.to_csv(output_folder / f"Image_analysis_extracted_features.csv")
 
 
 
 # %% [markdown]
-## running the pipeline to generate and save feature manifest
-def main(barcode):
-    barcode = '3500005829_4'
-    path_manifest=pd.read_csv(f'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-Quilt/{barcode}/manifest.csv')
-    save_folder=f'/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-Quilt/{barcode}/feature-extraction/'
-    gene = path_manifest['Gene'].values[0]
-    final_feature_folder=f'/allen/aics/emt/data_analysis_plots/Colony_Metrics/Resubmission/{gene}/{barcode}/'
-    Path(final_feature_folder).mkdir(parents=True, exist_ok=True)
-    df_features=compute_metrics(path_manifest, save_folder, final_feature_folder)
-
 if __name__ == '__main__':
-    from fire import Fire
-    Fire(main)
+    base_results_dir = io.setup_base_directory_name("metric_computation")
+    df_features_all = compute_metrics(output_folder=base_results_dir)
