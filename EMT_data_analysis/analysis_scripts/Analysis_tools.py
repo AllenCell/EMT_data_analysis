@@ -24,27 +24,39 @@ def run_all_analyses():
     """
 
     DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv',
+    MMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
+    MMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
     OUT_TYPE = 'svg'
 
+    df, df_mmp, df_mmp_mig = load_and_prep_datasets(
+        data_path=DATA_PATH,
+        mmp_data_path = MMP_DATA_PATH, 
+        mmp_mig_data_path = MMP_MIG_DATA_PATH,
+        figs_dir=FIGS_DIR)
 
-    df, df_f, df_summary = load_and_prep_datasets(data_path=DATA_PATH, figs_dir=FIGS_DIR)
-
-    plot_area_at_glass_all_data(df_f, FIGS_DIR, OUT_TYPE)
-    plot_area_at_glass_h2b(df_f, FIGS_DIR, OUT_TYPE)
-    plot_migration_timing_all_data(df_summary, FIGS_DIR, OUT_TYPE)
-    plot_migration_timing_h2b(df_summary, FIGS_DIR, OUT_TYPE)
-    plot_migration_timing_by_gene(df_summary, FIGS_DIR, OUT_TYPE)
-    plot_mean_intensity_by_gene(df_f, FIGS_DIR, OUT_TYPE)
-    plot_gene_expression_connected_boxplots(df_f, df_summary, FIGS_DIR, OUT_TYPE)
-    plot_gene_expression_experiments(df_summary, FIGS_DIR, OUT_TYPE)
+    plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
+    plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_h2b(df, FIGS_DIR, OUT_TYPE)
+    plot_migration_timing_by_gene(df, FIGS_DIR, OUT_TYPE)
+    plot_mean_intensity_by_gene(df, FIGS_DIR, OUT_TYPE)
+    plot_gene_expression_connected_boxplots(df, FIGS_DIR, OUT_TYPE)
+    plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
-    plot_inside_outside_migration_timing(df_f, df_summary, FIGS_DIR, OUT_TYPE)
+    plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
+    plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
+    plot_bmp_inhibitor_migration(df_mmp, df_mmp_mig, FIGS_DIR)
+    plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)
 
 
-def load_and_prep_datasets(data_path, figs_dir):
+def load_and_prep_datasets(
+        data_path, mmp_data_path, mmp_mig_data_path, figs_dir):
+
+    # figs_dir = io.setup_base_directory_name("figures")
+    # df = io.load_image_analysis_extracted_features(load_from_aws=True)
 
     df = pd.read_csv(data_path, index_col=None)
 
@@ -63,6 +75,16 @@ def load_and_prep_datasets(data_path, figs_dir):
 
     df.rename(columns={'Inflection Point':'Migration Time (h)', 'Inflection Point InOut':'Migration Time InOut (h)'}, inplace=True)
 
+    # n_filtered_movies=df_f['Movie ID'].nunique()
+    # print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
+
+    df_MMP = pd.read_csv('/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv', index_col=None)
+    df_MMP_mig = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv', index_col=None)
+
+    return df, df_MMP, df_MMP_mig
+
+
+def create_df_f(df):
     df_f = df[(df['Experimental Condition']=='2D PLF colony EMT') | (df['Experimental Condition']=='2D colony EMT') | (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
@@ -78,31 +100,35 @@ def load_and_prep_datasets(data_path, figs_dir):
     df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
 
     # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
-    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
-
-    # Summarizing the dataframe/manifest to have one line/metric per movie
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
-    df_summary = df_summary.sort_values('Timepoint (h)')
-
-    return df, df_f, df_summary
+    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(
+        lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else \
+            'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
+    
+    return df_f
 
 
-def plot_area_at_glass_all_data(df_f, figs_dir, out_type):
+def plot_area_at_glass_all_data(df, figs_dir, out_type):
     """
     Generates plots for area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time
     
     Parameters:
     -------
-    df_a : pd.DataFrame
+    df : pd.DataFrame
         Dataframe containing the area at the glass for each movie, gene and timepoint
     figs_dir : str
         Directory where the figures will be saved
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
-    """ 
+    """
+    # print('Generating plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time (Fig.5 C, D , E)')
+
+    # Set up dataset
+    df_f = create_df_f(df)
     df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
     n_a = df_a['Movie ID'].nunique()
-
+    fig,ax = plt.subplots(1,1)
+    
+    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Movie ID'):
     sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -127,10 +153,13 @@ def plot_area_at_glass_h2b(df_f, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
+    # Set up dataset
+    df_f = create_df_f(df_f)
     df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
     df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
     n_a = df_a['Movie ID'].nunique()
 
+    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Movie ID'):
     sns.lineplot(df_a_h2b, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -139,6 +168,16 @@ def plot_area_at_glass_h2b(df_f, figs_dir, out_type):
     plt.tight_layout()
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_H2B_n{n_a}.{out_type}', transparent=True, dpi=600)
+
+    # plot_tools.plot_examples(
+    #     df_int = df_a,
+    #     id_plf = const.EXAMPLE_PLF,
+    #     id_2d = const.EXAMPLE_2D,
+    #     id_3d = const.EXAMPLE_3D,
+    #     gene = "Example",
+    #     metric = 'Migration Time (h)',
+    #     variable = 'Area at the glass(square micrometer)',
+    #     figs_dir = figs_dir)
 
 
 def plot_migration_timing_all_data(df_summary, figs_dir, out_type):
@@ -155,6 +194,12 @@ def plot_migration_timing_all_data(df_summary, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """ 
 
+    # Set up dataset
+    df_f = create_df_f(df_summary)
+    df_f = df_f.sort_values('Timepoint (h)')
+    # Summarizing the dataframe/manifest to have one line/metric per movie
+    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+
     n_m = df_summary['Movie ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     fig_mig = px.box(df_summary, x='Condition order for plots', y='Migration Time (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
@@ -162,33 +207,55 @@ def plot_migration_timing_all_data(df_summary, figs_dir, out_type):
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_n{n_m}.{out_type}', scale=2 )
 
 
-def plot_migration_timing_h2b(df_summary, figs_dir, out_type):
+def plot_migration_timing_h2b(df, figs_dir, out_type):
     """
     Generate box plots for migration timing for H2B gene and corresponding migration time estimated from the inflection of area at glass over time
     
     Parameters:
     -----------
-    df_summary : pd.DataFrame
+    df : pd.DataFrame
         Dataframe containing the migration time for each movie, gene and condition
     figs_dir : str
         Directory where the figures will be saved
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
+    # Set up dataset
+    df_f = create_df_f(df)
+    df_f = df_f.sort_values('Timepoint (h)')
+    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
+
     n_m = df_summary[df_summary['Gene']=='H2B']['Movie ID'].nunique()
     df_summary = df_summary.sort_values(by='Condition order for plots')
     fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Time (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
     fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}.{out_type}', scale=2 )
 
+    # n_m = df_summary[df_summary['Gene']=='H2B']['Movie ID'].nunique()
+    # df_summary = df_summary.sort_values(by='Condition order for plots')
+    # fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Time (h) Manual', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
+    # fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
+    # fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}_(manual).{out_type}', scale=2 )
 
-def plot_migration_timing_by_gene(df_summary, figs_dir, out_type):
+    # print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for H2B...')
+    # x_mig = df_summary['Migration Time (h)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    # y_mig = df_summary['Migration Time (h)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    # z_mig = df_summary['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+
+    # print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
+    # print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
+    # print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
+
+    # plot_tools.run_statistics(x_mig,y_mig,z_mig)
+
+def plot_migration_timing_by_gene(df, figs_dir, out_type):
     """
     Generates box plots for migration timing for each gene in the dataset and for each condition within that gene
 
     Parameters:
     -----------
-    df_summary : pd.DataFrame
+    df : pd.DataFrame
         Dataframe containing the migration time for each movie, gene and condition
     figs_dir : str
         Directory where the figures will be saved
@@ -196,8 +263,17 @@ def plot_migration_timing_by_gene(df_summary, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
+    # print('Generating Box plots for migration timing for each gene in the dataset and fo each condition within that gene (Fig.S3)')
+
+    # Set up dataset
+    df_f = create_df_f(df)
+    df_f = df_f.sort_values('Timepoint (h)')
+    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
+    df_summary = df_summary.sort_values(by='Condition order for plots')
     df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
     df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
+    
     fig_mig_g = px.box(df_summary, y='Migration Time (h)', x='gene_m', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,35),width=1800, height=600)
     fig_mig_g.update_layout(showlegend=False)
     fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
@@ -217,13 +293,13 @@ def plot_migration_timing_by_gene(df_summary, figs_dir, out_type):
         plot_tools.run_statistics(x_mig, y_mig, z_mig)
 
 
-def plot_mean_intensity_by_gene(df_f, figs_dir, out_type):
+def plot_mean_intensity_by_gene(df, figs_dir, out_type):
     """
     Generates mean intensity plots for each gene in the dataset over time
 
     Parameters:
     -----------
-    df_f : pd.DataFrame
+    df : pd.DataFrame
         Dataframe containing the mean intensity for each movie, condition, gene and timepoint
     figs_dir : str
         Directory where the figures will be saved
@@ -231,6 +307,9 @@ def plot_mean_intensity_by_gene(df_f, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
+    # Set up dataset
+    df_f = create_df_f(df)
+    df_f = df_f.sort_values('Timepoint (h)')
     # Filtering to 10 z-slices over which the mean intensity is calculated
     df_z = df_f[(df_f['Normalized Z plane']>=0) & (df_f['Normalized Z plane']<10)]
 
@@ -244,6 +323,7 @@ def plot_mean_intensity_by_gene(df_f, figs_dir, out_type):
         n = d_g['Movie ID'].nunique()
         
         fig,ax = plt.subplots(1,1)
+        # for scn, df_scn in d_g.groupby('Movie ID'):
         sns.lineplot(d_g, x='Timepoint (h)', y='Mean Intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
         plt.ylabel('Mean intensity (a.u.)', fontsize=14)
         plt.xlabel('Time (h)', fontsize=14)
@@ -255,7 +335,7 @@ def plot_mean_intensity_by_gene(df_f, figs_dir, out_type):
         plt.savefig(fr'{figs_dir}/Mean_intensity_plot_{g}_n{n}_mean_line.{out_type}', dpi=600, transparent=True) 
 
 
-def plot_gene_expression_connected_boxplots(df_f, df_summary, figs_dir, out_type):
+def plot_gene_expression_connected_boxplots(df, figs_dir, out_type):
     """
     Generates connected box plots for gene expression metrics and migration time for EOMES, TBXT, E-cad and SOX2 genes
 
@@ -271,6 +351,9 @@ def plot_gene_expression_connected_boxplots(df_f, df_summary, figs_dir, out_type
         File type for the output figures (e.g. 'svg', 'png')
     """
 
+    # Set up dataset
+    df_f = create_df_f(df)
+    df_f = df_f.sort_values('Timepoint (h)')
     # Filtering to 10 z-slices over which the mean intensity is calculated
     df_z=df_f[(df_f['Normalized Z plane']>=0) & (df_f['Normalized Z plane']<10)]
 
@@ -293,6 +376,12 @@ def plot_gene_expression_connected_boxplots(df_f, df_summary, figs_dir, out_type
     ).reset_index()
     df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
 
+    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
+    df_summary = df_summary.sort_values(by='Condition order for plots')
+    df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
+    df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
+    
     Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
 
     # Time of max EOMES expression (h) examples
@@ -354,7 +443,7 @@ def plot_gene_expression_connected_boxplots(df_f, df_summary, figs_dir, out_type
     fig3.savefig(rf'{figs_dir}/Connected_box_plot_Sox_time_of_half_maximal_vs_Migration_hr.{out_type}', dpi=600)
 
 
-def plot_gene_expression_experiments(df_summary, figs_dir, out_type):
+def plot_gene_expression_experiments(df, figs_dir, out_type):
     """
     Plotting supplementary box plots
     a. timing of expression change relative to time of induction of EMT (time 0)
@@ -363,13 +452,22 @@ def plot_gene_expression_experiments(df_summary, figs_dir, out_type):
     migration (0-time of EMT induction and 1- time of migration)
 
     Parameters:
-    df_summary : pd.DataFrame
+    df : pd.DataFrame
         Dataframe containing the summary of the data with migration time and other metrics
     figs_dir : str
         Directory where the figures will be saved
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
+
+    # Set up dataset
+    df_f = create_df_f(df)
+    df_f = df_f.sort_values('Timepoint (h)')
+    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
+    df_summary = df_summary.sort_values(by='Condition order for plots')
+    df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
+    df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
 
     # Compiling data for the plots
     df_eomes = df_summary[df_summary.Gene=='EOMES']
@@ -424,6 +522,26 @@ def plot_gene_expression_experiments(df_summary, figs_dir, out_type):
     fig_difference.update_layout(xaxis_title='Cell lines', yaxis_title='Time of expression change divided by migration time (h)', font=dict(size=18))
     fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
     fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_divided_by_migration_time_FigS5c.{out_type}', scale=2 )
+
+    metric_dict = {
+        'EOMES':'Time of max EOMES expression (h)',
+        'TBXT':'Time of max TBXT expression (h)',
+        'CDH1':'Time of inflection of E-cad expression (h)',
+        'SOX2':'Time of half-maximal SOX2 expression (h)'
+    }
+
+    for g, df_g in df_comb.groupby('Gene'):
+        fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+        fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Time (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+        plt.xlim(10,50)
+        plt.ylim(10,50)
+
+        plt.title(f'{g}\n{metric_dict[g]} vs Migration Time (h)')
+        plt.xlabel(metric_dict[g], fontsize=16)
+        plt.ylabel('Migration Time (h)', fontsize=16)
+        plt.rcParams.update({'font.size':16})
+        plt.savefig(fr'{figs_dir}/Scatter_plot_between_{g}_metric_and_migration_time.{out_type}', dpi=600)
+
 
     print('\n\n\n.......Statistical comparison for gene metric:')
     for g, df_g in df_comb.groupby('Gene'):
@@ -487,6 +605,8 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
     df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'HBSS' not in c else -1)
     df_summary['Collagenease concentration (ug/mL)'] = [float(c.split(' ')[0])  if 'HBSS' not in c else 0 for c in df_summary['Drug Concentration'].values]
     df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
+    # df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
+    # df_summary = df_summary.sort_values(['gene_m','Drug Concentration'])
 
 
     print('\n\n\n.......Statistical comparison for migration time with collagenase treatment:')
@@ -546,6 +666,91 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         if slope_p_value < alpha:
             print(f"\nConclusion: The p-value for the slope is less than {alpha}, indicating a statistically significant linear relationship between drug concentration and migration time.")
             print(f"On average, for each 1 ug/mL increase in drug concentration, the migration time changes by {slope_coeff:.2f} hours.")
+        else:
+            print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
+
+
+def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
+    """
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Dataframe containing the experimental data with MMPi treatment information
+    figs_dir: str
+        Directory where the figures will be saved
+    out_type: str
+        File type for the output figures (e.g. 'svg', 'png')
+    """
+
+    Path(rf'{figs_dir}/MMPi').mkdir(exist_ok=True, parents=True)
+    df_coll = df[df['Perturbation']=='MMPi']
+
+    df_summary = df_coll.drop_duplicates(subset=['Movie ID'])
+    df_summary.dropna(subset=['Time of migration first cell'],inplace=True)
+
+    n_m = df_summary['Movie ID'].nunique()
+    df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'MMPi' not in c else -1)
+    df_summary['MMPi concentration (uM)'] = [float(c.split(' ')[0])  if 'MMPi' not in c else 0 for c in df_summary['Drug Concentration'].values]
+    df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
+
+    # print('Generating Box plots for migration timing for each gene in the dataset collagenase')
+    print('\n\n\n.......Statistical comparison for migration time with MMPi treatment:')
+    for gene, df_gene in df_summary.groupby('Gene'):
+        color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
+        fig_mig_g = px.box(df_gene, y='Time of migration first cell', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+        fig_mig_g.update_layout(showlegend=False)
+        fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
+        fig_mig_g.update_traces(width=0.6)
+        fig_mig_g.update_layout(boxgroupgap=0.4, boxgap=0.4)
+        fig_mig_g.write_image(rf'{figs_dir}/MMPi/Migration_box_plot_{gene}_per_conditions.{out_type}', scale=2 )
+
+        print('Gene: ', gene)
+        key = {g:i for i, g in enumerate(df_gene['Drug Concentration'].unique())}
+        concentrations = list(key.keys())
+        migration = [[]]*len(concentrations)
+
+        for g, d_g in df_gene.groupby('Drug Concentration'):
+            migration[key[g]] = d_g['Time of migration first cell'].values
+
+        for c, v in zip(concentrations, migration):
+            print('{5}: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
+
+        print('Concentrations:')
+        print(' '.join(['{0} n:{1} |'.format(t, len(v)) for t, v in zip(concentrations, migration)]))
+        print('Significant difference between the distributions: applying post hoc with Holm-Bonferroni adjustment of p-value')    
+        
+        print(sp.posthoc_mannwhitney(migration, p_adjust = 'holm'))
+
+
+        # Calculating statistics for downward trend in collagenase concentrations vs migration time
+
+        X = df_gene['MMPi concentration (uM)']
+        Y = df_gene['Time of migration first cell']
+
+        # It's important to add a constant (intercept) to the model
+        X = sm.add_constant(X)
+
+        # Fit the Ordinary Least Squares (OLS) model
+        model = sm.OLS(Y, X)
+        results = model.fit()
+
+        # Print the full summary of the regression results
+        print(results.summary())
+
+        # Interpretation of key results from the linear regression
+        print("\n--- Interpretation of Linear Regression Results ---")
+        slope_p_value = results.pvalues['MMPi concentration (uM)']
+        r_squared = results.rsquared
+        slope_coeff = results.params['MMPi concentration (uM)']
+
+        print(f"R-squared: {r_squared:.4f}")
+        print(f"Slope (Coefficient for concentration): {slope_coeff:.4f}")
+        print(f"P-value for the slope: {slope_p_value:.4g}") # Using 'g' for scientific notation if needed
+
+        alpha = 0.05
+        if slope_p_value < alpha:
+            print(f"\nConclusion: The p-value for the slope is less than {alpha}, indicating a statistically significant linear relationship between drug concentration and migration time.")
+            print(f"On average, for each 1 uM increase in drug concentration, the migration time changes by {slope_coeff:.2f} hours.")
         else:
             print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
 
@@ -616,6 +821,30 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
         print(sp.posthoc_mannwhitney(values, p_adjust = 'holm'))
 
 
+def plot_zo1_heatmaps(df, figs_dir, out_type):
+
+    # print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
+    # Filtering the dataset to only ZO1 data
+    (Path(figs_dir) / 'ZO1').mkdir(parents=True, exist_ok=True)
+
+    df_f = df[df['Gene']=='TJP1']
+
+    # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
+    time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
+    df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
+
+    # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
+    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
+
+    df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
+    df_zo = df_f[df_f.Gene=='TJP1']
+
+    df_zo_examples = df_zo[df_zo['Data ID'].isin(const.EXAMPLE_ZO1_IDS)]
+
+    # Generating and saving the heatmaps
+    plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir+'/ZO1', out_type=out_type)
+
+
 def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     """
     Analyzes the inside-outside classification of nuclei in the basement membrane and plots the fraction of nuclei outside the lumen over time.
@@ -629,6 +858,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
+    # print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
     df_f = df[(df['Gene']=='H2B') & (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
@@ -733,6 +963,52 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print('n: {0:d}'.format(n_movies_io))
     print('Pearson Correlation: {0:.4f} | p-Value: {1}'.format(results.statistic, results.pvalue))
 
+    # Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
+    df_io_id = dfio_grouped[dfio_grouped['Data ID']==const.EXAMPLE_IO_ID]
+    fig,ax = plt.subplots(1,1,figsize=(8,6))
+
+    x_io = df_io_id['Migration Time InOut (h)'].values[0]
+    y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
+    ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
+    ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
+    plt.ylabel(f'Fraction of nuclei outside the lumen', fontsize=16)
+    plt.xlabel('Time (hr)', fontsize=16)
+    plt.xlim(left=10)
+    plt.tight_layout()
+    plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
+
+
+def plot_bmp_inhibitor_migration(df_MMP, df_MMP_mig, figs_dir: str):
+
+    (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
+    df_MMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
+
+    df_MMP = pd.merge(df_MMP, df_MMP_mig, how='inner', on=['Plate Barcode', 'Well Label'])
+    df_MMP = df_MMP[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
+    df_MMP.replace('NM',np.nan, inplace=True)
+    df_MMP['Average Migration Onset (h)'] = df_MMP['Average Migration Onset (h)'].apply(lambda x: float(x))
+
+    def _parse_treatment(s):
+        s = s.replace('BMP4 EMT','BMP4')
+        s = s.split('BMP4')
+        out = ['BMP4']
+        if len(s)>1:
+            out.append(s[-1].lstrip(' '))
+        return ' '.join(out)
+
+    df_MMP['Treatment'] = df_MMP['Experimental Condition'].apply(_parse_treatment)
+    df_MMP['Colony Type'] = df_MMP['Experimental Condition'].apply(lambda s: s.split(' BMP4')[0])
+
+    df_MMP['Condition order for plots']=df_MMP['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
+    df_MMP['Treatment order for plots']=df_MMP['Treatment'].apply(lambda x: 'b.BMP4 LDN 0.1uM' if '0.1' in x else 'c.BMP4 LDN 0.5uM' if '0.5' in x else 'a.BMP4')
+
+    df_MMP = df_MMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
+
+    for col, df_col in df_MMP.groupby('Colony Type'):
+        fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), width=800, height=600)
+        fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
+        fig_mig.update_layout(showlegend=False)
+        #TODO: check this - there is no figure saved here after the fig object is updated?
 
 
 def _normalize_to_T0_mean_by_round_and_condiiton(group: pd.DataFrame) -> pd.DataFrame:
