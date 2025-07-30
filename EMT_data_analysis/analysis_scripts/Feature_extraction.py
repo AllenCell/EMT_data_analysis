@@ -9,7 +9,7 @@ from EMT_data_analysis.tools import io, alignment
 
 warnings.filterwarnings("ignore")
 
-def compute_bf_colony_features_all_movies(df, output_folder, align=True):
+def compute_bf_colony_features_all_movies(output_folder, align=True):
     '''
     Computes area of the bright field colony mask at every z position
     and extracts corresponding intensity values from the fluorescence
@@ -26,6 +26,7 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         Enable alignment of the image using the barcode of the movie
     '''
 
+    df = io.load_imaging_and_segmentation_dataset()
     print(f"Dataset loaded. Shape: {df.shape}.")
 
     for movie_id, df_movie in tqdm(df.groupby('Movie ID')):
@@ -42,27 +43,21 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         print(raw_path)
         print(raw_reader.shape)
     
-        # print("Getting colony mask....")
-        # seg_path = df_movie["All Cells Mask URL"].values[0]
-        # seg_reader = BioImage(seg_path)
+        print("Getting colony mask....")
+        seg_path = df_movie["All Cells Mask URL"].values[0]
+        seg_reader = BioImage(seg_path)
         
         print("Computing features....")
 
         df_result = []
         # We only process the first 48 hours (98 timepoints)
-        # max_timepoint = int(np.min([98, df_movie['Image Size T'].values[0]]))
-        max_timepoint = df_movie['Timepoint'].max()
+        max_timepoint = int(np.min([98, df_movie['Image Size T'].values[0]]))
 
-        for _, df_tp in tqdm(df_movie.iterrows(), total=len(df_movie.index)):
-            if raw_reader.shape[1] == 1:
-                channel = 0
-            else:
-                channel = 1
-            raw_img = raw_reader.get_image_dask_data("ZYX", C=channel, T=df_tp['Timepoint'])
+        for frame in tqdm(range(max_timepoint), total=max_timepoint):
+            raw_img = raw_reader.get_image_dask_data("ZYX", C=1, T=frame)
             raw_img = raw_img.compute() 
                 
-            seg_reader = BioImage(df_tp["All Cells Mask URL"])
-            seg_img = seg_reader.get_image_dask_data("ZYX")
+            seg_img = seg_reader.get_image_dask_data("ZYX", T=frame)
             seg_img = seg_img.compute()
 
             if align:
@@ -82,7 +77,7 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
 
                 row = {
                     "Z plane": z,
-                    "Timepoint": df_tp['Timepoint'],
+                    "Timepoint": frame,
                     "Movie ID": movie_id,
                     "Mean intensity per Z": mean_intensity,
                     "Total intensity per Z": total_intensity,
@@ -95,17 +90,9 @@ def compute_bf_colony_features_all_movies(df, output_folder, align=True):
         df_result["Experimental Condition"] = df_movie["Experimental Condition"].values[0]
         df_result.to_csv(out_fn)
 
-def main(barcode):
-    csv_dir = Path('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/EMT-new-timelapse/')
-    manifest = pd.read_csv(csv_dir / str(barcode) / 'manifest.csv', index_col=None)
-    result_dir = csv_dir / str(barcode) / 'feature-extraction'
-    result_dir.mkdir(parents=True, exist_ok=True)
-    compute_bf_colony_features_all_movies(df=manifest, output_folder=result_dir)
-
-
 if __name__ == '__main__':
-    from fire import Fire
-    Fire(main)
+    base_results_dir = io.setup_base_directory_name("feature_extraction")
+    compute_bf_colony_features_all_movies(output_folder=base_results_dir)
 
 
 

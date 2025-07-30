@@ -370,6 +370,26 @@ fig_difference.update_layout(xaxis_title='Cell lines', yaxis_title='Time of expr
 fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
 fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_divided_by_migration_time_FigS5c.{out_type}', scale=2 )
 
+metric_dict = {
+    'EOMES':'Time of max EOMES expression (h)',
+    'TBXT':'Time of max TBXT expression (h)',
+    'CDH1':'Time of inflection of E-cad expression (h)',
+    'SOX2':'Time of half-maximal SOX2 expression (h)'
+}
+
+for g, df_g in df_comb.groupby('Gene'):
+    fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+    fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Time (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+    plt.xlim(10,50)
+    plt.ylim(10,50)
+
+    plt.title(f'{g}\n{metric_dict[g]} vs Migration Time (h)')
+    plt.xlabel(metric_dict[g], fontsize=16)
+    plt.ylabel('Migration Time (h)', fontsize=16)
+    plt.rcParams.update({'font.size':16})
+    plt.savefig(fr'{figs_dir}/Scatter_plot_between_{g}_metric_and_migration_time.{out_type}', dpi=600)
+
+
 print('\n\n\n.......Statistical comparison for gene metric:')
 for g, df_g in df_comb.groupby('Gene'):
     print(f'gene={g}')
@@ -493,6 +513,84 @@ for gene, df_gene in df_summary.groupby('Gene'):
         print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
 
 
+### -----------------------------------------------------------------------------------
+# MMP Inhibitor Migration
+### -----------------------------------------------------------------------------------
+
+Path(rf'{figs_dir}/MMPi').mkdir(exist_ok=True, parents=True)
+df_coll = df[df['Perturbation']=='MMPi']
+
+df_summary = df_coll.drop_duplicates(subset=['Movie ID'])
+df_summary.dropna(subset=['Time of migration first cell'],inplace=True)
+
+n_m = df_summary['Movie ID'].nunique()
+df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'MMPi' not in c else -1)
+df_summary['MMPi concentration (uM)'] = [float(c.split(' ')[0])  if 'MMPi' not in c else 0 for c in df_summary['Drug Concentration'].values]
+df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
+
+# print('Generating Box plots for migration timing for each gene in the dataset collagenase')
+print('\n\n\n.......Statistical comparison for migration time with MMPi treatment:')
+for gene, df_gene in df_summary.groupby('Gene'):
+    color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
+    fig_mig_g = px.box(df_gene, y='Time of migration first cell', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+    fig_mig_g.update_layout(showlegend=False)
+    fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
+    fig_mig_g.update_traces(width=0.6)
+    fig_mig_g.update_layout(boxgroupgap=0.4, boxgap=0.4)
+    fig_mig_g.write_image(rf'{figs_dir}/MMPi/Migration_box_plot_{gene}_per_conditions.{out_type}', scale=2 )
+
+    print('Gene: ', gene)
+    key = {g:i for i, g in enumerate(df_gene['Drug Concentration'].unique())}
+    concentrations = list(key.keys())
+    migration = [[]]*len(concentrations)
+
+    for g, d_g in df_gene.groupby('Drug Concentration'):
+        migration[key[g]] = d_g['Time of migration first cell'].values
+
+    for c, v in zip(concentrations, migration):
+        print('{5}: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
+
+    print('Concentrations:')
+    print(' '.join(['{0} n:{1} |'.format(t, len(v)) for t, v in zip(concentrations, migration)]))
+    print('Significant difference between the distributions: applying post hoc with Holm-Bonferroni adjustment of p-value')    
+    
+    print(sp.posthoc_mannwhitney(migration, p_adjust = 'holm'))
+
+
+    # Calculating statistics for downward trend in collagenase concentrations vs migration time
+
+    X = df_gene['MMPi concentration (uM)']
+    Y = df_gene['Time of migration first cell']
+
+    # It's important to add a constant (intercept) to the model
+    X = sm.add_constant(X)
+    
+    # import pdb; pdb.set_trace()
+
+    # Fit the Ordinary Least Squares (OLS) model
+    model = sm.OLS(Y, X)
+    results = model.fit()
+
+    # Print the full summary of the regression results
+    print(results.summary())
+
+    # Interpretation of key results from the linear regression
+    print("\n--- Interpretation of Linear Regression Results ---")
+    slope_p_value = results.pvalues['MMPi concentration (uM)']
+    r_squared = results.rsquared
+    slope_coeff = results.params['MMPi concentration (uM)']
+
+    print(f"R-squared: {r_squared:.4f}")
+    print(f"Slope (Coefficient for concentration): {slope_coeff:.4f}")
+    print(f"P-value for the slope: {slope_p_value:.4g}") # Using 'g' for scientific notation if needed
+
+    alpha = 0.05
+    if slope_p_value < alpha:
+        print(f"\nConclusion: The p-value for the slope is less than {alpha}, indicating a statistically significant linear relationship between drug concentration and migration time.")
+        print(f"On average, for each 1 uM increase in drug concentration, the migration time changes by {slope_coeff:.2f} hours.")
+    else:
+        print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
+
 
 
 ### -----------------------------------------------------------------------------------
@@ -517,12 +615,10 @@ df_summary['Colony'] = df_summary['Experimental Condition'].apply(lambda s: s.sp
 df_summary = df_summary[df_summary['Colony']=='3D lumenoid EMT']
 df_summary['Knockdown'] = df_summary['Experimental Condition'].apply(lambda s: s.split(' CRISPRi ')[-1] if 'CRISPRi' in s else 'Control')
 df_summary['Target'] = df_summary['Knockdown'].apply(lambda s: s.replace(' g1','').replace(' g2','').replace(' g3',''))
-# import pdb; pdb.set_trace()
 
 print('Generating Box plots for migration timing for CLYBL gene knockdown experiment')
 df_summary['Condition order for plots']=df_summary['Knockdown'].apply(lambda x: 'a.Control' if 'Control' in x else 'b.Seq Scr' if 'seq' in x else f'c.{x}' if 'g1' in x else f'd.{x}' if 'g2' in x else f'e.{x}')
 df_summary = df_summary.sort_values(['Condition order for plots'])
-# import pdb; pdb.set_trace()
 
 print('\n\n\n.......Statistical comparison for migration time with gene knockdowns:')
 
@@ -562,12 +658,24 @@ for gene in ['TBXT', 'Snail']:
 
 # print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
 # Filtering the dataset to only ZO1 data
-# df_zo = df_f[df_f.Gene=='TJP1']
+(Path(figs_dir) / 'ZO1').mkdir(parents=True, exist_ok=True)
 
-# df_zo_examples = df_zo[df_zo['Movie ID'].isin(const.EXAMPLE_ZO1_IDS)]
+df_f = df[df['Gene']=='TJP1']
+
+# Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
+time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
+df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
+
+# For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
+df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
+
+df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
+df_zo = df_f[df_f.Gene=='TJP1']
+
+df_zo_examples = df_zo[df_zo['Data ID'].isin(const.EXAMPLE_ZO1_IDS)]
 
 # Generating and saving the heatmaps
-# plot_tools.Intensity_over_z(df_zo, figs_dir=figs_dir)
+plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir+'/ZO1', out_type=out_type)
 
 
 ### -----------------------------------------------------------------------------------
@@ -613,6 +721,7 @@ df_io = pd.concat(df_io, ignore_index=True)
 df_info = df_summary[[
     'Condition order for plots',
     'Movie ID',
+    'Data ID',
     'Gene',
     'Migration Time (h)',
     'Migration Time InOut (h)', 
@@ -634,7 +743,7 @@ n_movies_io=dfio_merge['Movie ID'].nunique()
 dfio_grouped=dfio_merge.groupby([
     'Condition order for plots',
     'Gene',
-    'Movie ID',
+    'Data ID',
     'Time hr'
 ]).agg({
     'Inside':'mean', 
@@ -655,9 +764,9 @@ plt.legend(loc='upper left')
 plt.savefig(fr'{figs_dir}/Inside-Outside/Fraction_of_nuclei_outside_lumen.{out_type}', dpi=600, transparent=True)
 
 
-dfio_grouped=dfio_merge.groupby([
+dfio_scatter=dfio_merge.groupby([
     'Condition order for plots',
-    'Movie ID',
+    'Data ID',
 ]).agg({
     'Migration Time (h)':'first', 
     'Migration Time InOut (h)':'first'
@@ -665,7 +774,7 @@ dfio_grouped=dfio_merge.groupby([
 
 # Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
 fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-fig_scatter = sns.scatterplot(dfio_grouped, x='Migration Time (h)', y='Migration Time InOut (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+fig_scatter = sns.scatterplot(dfio_scatter, x='Migration Time (h)', y='Migration Time InOut (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
 plt.xlim(20,36)
 plt.ylim(20,36)
 
@@ -675,24 +784,63 @@ plt.rcParams.update({'font.size':16})
 plt.savefig(fr'{figs_dir}/Inside-Outside/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside.{out_type}', dpi=600, transparent=True)
 
 print('\n\n\n.......Statistical comparison for migration time using Area-at-Mask vs Inside-Outside:')
-X = dfio_grouped['Migration Time (h)'].values
-Y = dfio_grouped['Migration Time InOut (h)'].values
+X = dfio_scatter['Migration Time (h)'].values
+Y = dfio_scatter['Migration Time InOut (h)'].values
 
 results = pearsonr(X, Y)
 print('n: {0:d}'.format(n_movies_io))
 print('Pearson Correlation: {0:.4f} | p-Value: {1}'.format(results.statistic, results.pvalue))
 
 # Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
-# df_io_id = dfio_grouped[dfio_grouped['Movie ID']==const.EXAMPLE_IO_ID]
+df_io_id = dfio_grouped[dfio_grouped['Data ID']==const.EXAMPLE_IO_ID]
+fig,ax = plt.subplots(1,1,figsize=(8,6))
 
-# fig,ax = plt.subplots(1,1,figsize=(8,6))
+x_io = df_io_id['Migration Time InOut (h)'].values[0]
+y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
+ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
+ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
+plt.ylabel(f'Fraction of nuclei outside the lumen', fontsize=16)
+plt.xlabel('Time (hr)', fontsize=16)
+plt.xlim(left=10)
+plt.tight_layout()
+plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
 
-# x_io = df_migration_io['Migration Time IO (h)'][df_migration_io['Movie ID']==const.EXAMPLE_IO_ID].values[0]
-# y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
-# ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
-# ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
-# plt.ylabel(f'Fraction of nuclei outside the lumen', fontsize=16)
-# plt.xlabel('Time (hr)', fontsize=16)
-# plt.xlim(left=10)
-# plt.tight_layout()
-# plt.savefig(fr'{figs_dir}/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600, transparent=True)
+
+### -----------------------------------------------------------------------------------
+# BMP Inhibitor Migration
+### -----------------------------------------------------------------------------------
+
+(Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
+df_MMP = pd.read_csv('/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv', index_col=None)
+df_MMP_mig = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv', index_col=None)
+
+df_MMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
+
+df_MMP = pd.merge(df_MMP, df_MMP_mig, how='inner', on=['Plate Barcode', 'Well Label'])
+df_MMP = df_MMP[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
+df_MMP.replace('NM',np.nan, inplace=True)
+df_MMP['Average Migration Onset (h)'] = df_MMP['Average Migration Onset (h)'].apply(lambda x: float(x))
+
+def _parse_treatment(s):
+    s = s.replace('BMP4 EMT','BMP4')
+    s = s.split('BMP4')
+    out = ['BMP4']
+    if len(s)>1:
+        out.append(s[-1].lstrip(' '))
+    return ' '.join(out)
+
+df_MMP['Treatment'] = df_MMP['Experimental Condition'].apply(_parse_treatment)
+df_MMP['Colony Type'] = df_MMP['Experimental Condition'].apply(lambda s: s.split(' BMP4')[0])
+
+df_MMP['Condition order for plots']=df_MMP['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
+df_MMP['Treatment order for plots']=df_MMP['Treatment'].apply(lambda x: 'b.BMP4 LDN 0.1uM' if '0.1' in x else 'c.BMP4 LDN 0.5uM' if '0.5' in x else 'a.BMP4')
+
+df_MMP = df_MMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
+
+for col, df_col in df_MMP.groupby('Colony Type'):
+    fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), width=800, height=600)
+    fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
+    fig_mig.update_layout(showlegend=False)
+
+    col_type = col.replace(' ','-')
+    fig_mig.write_image(fr'{figs_dir}/BMP/BMP_inhibitor_migration_timing_for_{col_type}.{out_type}', scale=2 )
