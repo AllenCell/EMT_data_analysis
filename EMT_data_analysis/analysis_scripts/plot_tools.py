@@ -159,7 +159,7 @@ def plot_connected_box_plot(df_summary, Gene, column_1_name, column_2_name, ylim
     plt.title(f'{column_1_name} vs {column_2_name}')
     return fig,axs
 
-def Intensity_over_z(df, figs_dir, color_map='coolwarm'):
+def Intensity_over_z(df, figs_dir, color_map='coolwarm', out_type='pdf'):
     '''
     This function  plots a heatmap for a movie to show ZO1 intensity over time across the z plane to show ZO1 dynamics 
 
@@ -201,4 +201,4 @@ def Intensity_over_z(df, figs_dir, color_map='coolwarm'):
         ax= sns.heatmap(df_nanmerge, cmap=color_map, vmin=color_min, vmax=color_max )
         ax.invert_yaxis()
         plt.title(f'Condition={c}, Movie ID={id}')
-        fig.savefig(rf'{figs_dir}/Histogram_zo1_{c}_{id}.pdf', dpi=600)
+        fig.savefig(rf'{figs_dir}/Histogram_zo1_{c}_{id}.{out_type}', dpi=600)
