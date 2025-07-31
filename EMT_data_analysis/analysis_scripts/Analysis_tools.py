@@ -30,7 +30,7 @@ def run_all_analyses():
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
     OUT_TYPE = 'svg'
 
-    df, df_bmp, df_bmp_mig = load_and_prep_datasets(
+    df, df_bmp = load_and_prep_datasets(
         data_path=DATA_PATH,
         bmp_data_path = BMP_DATA_PATH, 
         bmp_mig_data_path = BMP_MIG_DATA_PATH,
@@ -48,7 +48,7 @@ def run_all_analyses():
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df_bmp, df_bmp_mig, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
 
@@ -81,8 +81,15 @@ def load_and_prep_datasets(
 
     df_bmp = pd.read_csv(bmp_data_path, index_col=None)
     df_bmp_mig = pd.read_csv(bmp_mig_data_path, index_col=None)
+    
+    df_bmp_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
 
-    return df, df_bmp, df_bmp_mig
+    df_bmp = pd.merge(df_bmp, df_bmp_mig, how='inner', on=['Plate Barcode', 'Well Label'])
+    df_bmp = df_bmp[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
+    df_bmp.replace('NM',np.nan, inplace=True)
+    df_bmp['Average Migration Onset (h)'] = df_bmp['Average Migration Onset (h)'].apply(lambda x: float(x))
+
+    return df, df_bmp
 
 
 def create_df_f(df, time_interval=30):
@@ -1001,15 +1008,10 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
 
 
-def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str, out_type):
+def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
 
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
-    df_BMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
-
-    df_BMP = pd.merge(df_BMP, df_BMP_mig, how='inner', on=['Plate Barcode', 'Well Label'])
-    df_BMP = df_BMP[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
-    df_BMP.replace('NM',np.nan, inplace=True)
-    df_BMP['Average Migration Onset (h)'] = df_BMP['Average Migration Onset (h)'].apply(lambda x: float(x))
+    
 
     def _parse_treatment(s):
         s = s.replace('BMP4 EMT','BMP4')
