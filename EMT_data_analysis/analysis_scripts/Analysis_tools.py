@@ -177,15 +177,15 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_H2B_n{n_a}.{out_type}', transparent=True, dpi=600)
 
-    # plot_tools.plot_examples(
-    #     df_int = df_a,
-    #     id_plf = const.EXAMPLE_PLF,
-    #     id_2d = const.EXAMPLE_2D,
-    #     id_3d = const.EXAMPLE_3D,
-    #     gene = "Example",
-    #     metric = 'Migration Time (h)',
-    #     variable = 'Area at the glass(square micrometer)',
-    #     figs_dir = figs_dir)
+    plot_tools.plot_examples(
+        df_int = df_a,
+        id_plf = const.EXAMPLE_PLF,
+        id_2d = const.EXAMPLE_2D,
+        id_3d = const.EXAMPLE_3D,
+        gene = "Example",
+        metric = 'Migration Time (h)',
+        variable = 'Area at the glass(square micrometer)',
+        figs_dir = figs_dir)
 
 
 def plot_migration_timing_all_data(df, figs_dir, out_type):
@@ -241,22 +241,16 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}.{out_type}', scale=2 )
 
-    # n_m = df_summary[df_summary['Gene']=='H2B']['Movie ID'].nunique()
-    # df_summary = df_summary.sort_values(by='Condition order for plots')
-    # fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Time (h) Manual', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
-    # fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
-    # fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}_(manual).{out_type}', scale=2 )
+    print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for H2B...')
+    x_mig = df_summary['Migration Time (h)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    y_mig = df_summary['Migration Time (h)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    z_mig = df_summary['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
 
-    # print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for H2B...')
-    # x_mig = df_summary['Migration Time (h)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
-    # y_mig = df_summary['Migration Time (h)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
-    # z_mig = df_summary['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
+    print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
+    print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
 
-    # print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
-    # print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
-    # print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
-
-    # plot_tools.run_statistics(x_mig,y_mig,z_mig)
+    plot_tools.run_statistics(x_mig,y_mig,z_mig)
 
 def plot_migration_timing_by_gene(df, figs_dir, out_type):
     """
@@ -345,6 +339,52 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         plt.tight_layout()
         plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
         plt.savefig(fr'{figs_dir}/Mean_intensity_plot_{g}_n{n}_mean_line.{out_type}', dpi=600, transparent=True) 
+
+    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
+    # Time of max EOMES expression (h) examples
+    plot_tools.plot_examples(
+        df_int = df_int,
+        id_plf = const.EOMES_PLF,
+        id_2d = const.EOMES_2D,
+        id_3d = const.EOMES_3D,
+        gene = "EOMES",
+        figs_dir = figs_dir+'/Individual_Examples',
+        metric='Time of max EOMES expression (h)',
+        out_type=out_type)
+
+    # Time of max TBXT expression (h) examples
+    plot_tools.plot_examples(
+        df_int = df_int,
+        id_plf = const.TBXT_PLF,
+        id_2d = const.TBXT_2D,
+        id_3d = const.TBXT_3D,
+        gene = "TBXT",
+        figs_dir = figs_dir+'/Individual_Examples',
+        metric='Time of max TBXT expression (h)',
+        out_type=out_type)
+
+    # Time of inflection of E-cad expression (h) examples-
+    # import pdb; pdb.set_trace()
+    plot_tools.plot_examples(
+        df_int = df_int,
+        id_plf = const.CDH_PLF,
+        id_2d = const.CDH_2D,
+        id_3d = const.CDH_3D,
+        gene = "CDH1",
+        figs_dir = figs_dir+'/Individual_Examples',
+        metric='Time of inflection of E-cad expression (h)',
+        out_type=out_type)
+
+    # Time of inflection of SOX expression (h) examples-
+    plot_tools.plot_examples(
+        df_int = df_int,
+        id_plf = const.SOX_PLF,
+        id_2d = const.SOX_2D,
+        id_3d = const.SOX_3D,
+        gene = "SOX2",
+        figs_dir = figs_dir+'/Individual_Examples',
+        metric = 'Time of half-maximal SOX2 expression (h)',
+        out_type=out_type)
 
 
 def plot_gene_expression_connected_boxplots(df, figs_dir, out_type):
@@ -1009,9 +1049,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
 
 
 def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
-
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
-    
 
     def _parse_treatment(s):
         s = s.replace('BMP4 EMT','BMP4')
