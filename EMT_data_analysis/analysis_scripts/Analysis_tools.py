@@ -25,15 +25,15 @@ def run_all_analyses():
     """
 
     DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv'
-    MMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
-    MMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
+    BMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
+    BMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
     OUT_TYPE = 'svg'
 
-    df, df_mmp, df_mmp_mig = load_and_prep_datasets(
+    df, df_bmp, df_bmp_mig = load_and_prep_datasets(
         data_path=DATA_PATH,
-        mmp_data_path = MMP_DATA_PATH, 
-        mmp_mig_data_path = MMP_MIG_DATA_PATH,
+        bmp_data_path = BMP_DATA_PATH, 
+        bmp_mig_data_path = BMP_MIG_DATA_PATH,
         figs_dir=FIGS_DIR)
     
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -48,13 +48,13 @@ def run_all_analyses():
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df_mmp, df_mmp_mig, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df_bmp, df_bmp_mig, FIGS_DIR)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
 
 
 def load_and_prep_datasets(
-        data_path, mmp_data_path, mmp_mig_data_path, figs_dir):
+        data_path, bmp_data_path, bmp_mig_data_path, figs_dir):
 
     # figs_dir = io.setup_base_directory_name("figures")
     # df = io.load_image_analysis_extracted_features(load_from_aws=True)
@@ -79,10 +79,10 @@ def load_and_prep_datasets(
     # n_filtered_movies=df_f['Movie ID'].nunique()
     # print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
 
-    df_MMP = pd.read_csv(mmp_data_path, index_col=None)
-    df_MMP_mig = pd.read_csv(mmp_mig_data_path, index_col=None)
+    df_bmp = pd.read_csv(bmp_data_path, index_col=None)
+    df_bmp_mig = pd.read_csv(bmp_mig_data_path, index_col=None)
 
-    return df, df_MMP, df_MMP_mig
+    return df, df_bmp, df_bmp_mig
 
 
 def create_df_f(df, time_interval=30):
@@ -1001,15 +1001,15 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
 
 
-def plot_bmp_inhibitor_migration(df_MMP, df_MMP_mig, figs_dir: str):
+def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str):
 
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
-    df_MMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
+    df_BMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
 
-    df_MMP = pd.merge(df_MMP, df_MMP_mig, how='inner', on=['Plate Barcode', 'Well Label'])
-    df_MMP = df_MMP[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
-    df_MMP.replace('NM',np.nan, inplace=True)
-    df_MMP['Average Migration Onset (h)'] = df_MMP['Average Migration Onset (h)'].apply(lambda x: float(x))
+    df_BMP = pd.merge(df_BMP, df_BMP_mig, how='inner', on=['Plate Barcode', 'Well Label'])
+    df_BMP = df_BMP[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
+    df_BMP.replace('NM',np.nan, inplace=True)
+    df_BMP['Average Migration Onset (h)'] = df_BMP['Average Migration Onset (h)'].apply(lambda x: float(x))
 
     def _parse_treatment(s):
         s = s.replace('BMP4 EMT','BMP4')
@@ -1019,15 +1019,15 @@ def plot_bmp_inhibitor_migration(df_MMP, df_MMP_mig, figs_dir: str):
             out.append(s[-1].lstrip(' '))
         return ' '.join(out)
 
-    df_MMP['Treatment'] = df_MMP['Experimental Condition'].apply(_parse_treatment)
-    df_MMP['Colony Type'] = df_MMP['Experimental Condition'].apply(lambda s: s.split(' BMP4')[0])
+    df_BMP['Treatment'] = df_BMP['Experimental Condition'].apply(_parse_treatment)
+    df_BMP['Colony Type'] = df_BMP['Experimental Condition'].apply(lambda s: s.split(' BMP4')[0])
 
-    df_MMP['Condition order for plots']=df_MMP['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
-    df_MMP['Treatment order for plots']=df_MMP['Treatment'].apply(lambda x: 'b.BMP4 LDN 0.1uM' if '0.1' in x else 'c.BMP4 LDN 0.5uM' if '0.5' in x else 'a.BMP4')
+    df_BMP['Condition order for plots']=df_BMP['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
+    df_BMP['Treatment order for plots']=df_BMP['Treatment'].apply(lambda x: 'b.BMP4 LDN 0.1uM' if '0.1' in x else 'c.BMP4 LDN 0.5uM' if '0.5' in x else 'a.BMP4')
 
-    df_MMP = df_MMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
+    df_BMP = df_BMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
 
-    for col, df_col in df_MMP.groupby('Colony Type'):
+    for col, df_col in df_BMP.groupby('Colony Type'):
         fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), width=800, height=600)
         fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
         fig_mig.update_layout(showlegend=False)
