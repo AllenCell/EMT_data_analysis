@@ -1028,7 +1028,7 @@ def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str, out_type):
     df_BMP = df_BMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
 
     for col, df_col in df_BMP.groupby('Colony Type'):
-        fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), width=800, height=600)
+        fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), range_x=(-0.5,2.5), width=800, height=600)
         fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
         fig_mig.update_layout(showlegend=False)
 
