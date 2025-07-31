@@ -1001,7 +1001,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
 
 
-def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str):
+def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str, out_type):
 
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
     df_BMP_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
@@ -1031,7 +1031,9 @@ def plot_bmp_inhibitor_migration(df_BMP, df_BMP_mig, figs_dir: str):
         fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), width=800, height=600)
         fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
         fig_mig.update_layout(showlegend=False)
-        #TODO: check this - there is no figure saved here after the fig object is updated?
+
+        col_type = col.replace(' ','-')
+        fig_mig.write_image(fr'{figs_dir}/BMP/BMP_inhibitor_migration_timing_for_{col_type}.{out_type}', scale=2 )
 
 
 def _normalize_to_T0_mean_by_round_and_condiiton(group: pd.DataFrame) -> pd.DataFrame:
