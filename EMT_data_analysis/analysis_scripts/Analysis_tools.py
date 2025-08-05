@@ -8,7 +8,7 @@ from EMT_data_analysis.tools import io, const
 from EMT_data_analysis.analysis_scripts import plot_tools
 from pathlib import Path
 import scikit_posthocs as sp
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
 
 # Set font to be Arial and configure text in figures to be editable in Adobe Illustrator
@@ -42,7 +42,6 @@ def run_all_analyses():
     plot_migration_timing_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_by_gene(df, FIGS_DIR, OUT_TYPE)
     plot_mean_intensity_by_gene(df, FIGS_DIR, OUT_TYPE)
-    plot_gene_expression_connected_boxplots(df, FIGS_DIR, OUT_TYPE)
     plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
@@ -467,13 +466,23 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
     fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
     fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_divided_by_migration_time_FigS5c.{out_type}', scale=2 )
 
+    # Plotting of expression timing relative to EMT induction as independent graphs per-gene
+    for g, df_g in df_comb.groupby('Gene'):
+        fig_difference = px.box(df_g, y='gene_metric', x='Condition order for plots', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,50),width=600, height=600)
+        fig_difference.update_layout(showlegend=False)
+
+        fig_difference.update_layout(xaxis_title='Cell lines', yaxis_title='Time of expression change (h)', font=dict(size=18))
+        fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
+        fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_relative_to_EMT_induction_T_0_for_{g}_FigS5a.{out_type}', scale=2 )
+
+
+    # Plotting scatter plots of gene metrics vs migration time
     metric_dict = {
         'EOMES':'Time of max EOMES expression (h)',
         'TBXT':'Time of max TBXT expression (h)',
         'CDH1':'Time of inflection of E-cad expression (h)',
         'SOX2':'Time of half-maximal SOX2 expression (h)'
     }
-
     for g, df_g in df_comb.groupby('Gene'):
         fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
         fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Time (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
@@ -525,6 +534,67 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
         
         plot_tools.run_statistics(x,y,z)
+
+    print('\n\n\n.......Correlation for gene metric vs migration time:')
+    for g, df_g in df_comb.groupby('Gene'):
+        print('\n')
+        print('-------------')
+        print(f'gene={g}')
+        for cond in ['2D PLF', '2D colony EMT', '3D lumenoid EMT']:
+            print('\n-----------')
+            print(f'Condition: {cond}')
+            migration = df_g['Migration Time (h)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+            metric = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+        
+            pearson, p_pvalue = pearsonr(migration, metric)
+            spearman, s_pvalue = spearmanr(migration, metric)
+            print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
+            print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
+
+            X = df_g['Migration Time (h)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+            Y = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+
+            # It's important to add a constant (intercept) to the model
+            X = sm.add_constant(X)
+            
+            # Fit the Ordinary Least Squares (OLS) model
+            model = sm.OLS(Y, X)
+            results = model.fit()
+
+            slope_p_value = results.pvalues['Migration Time (h)']
+            r_squared = results.rsquared
+            slope_coeff = results.params['Migration Time (h)']
+
+            print(f"R-squared: {r_squared:.3g}")
+            print(f"Slope (Coefficient for gene expression): {slope_coeff:.3g}")
+            print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
+
+        print('\n\n-------Statistics for entire metric------------')
+        migration = df_g['Migration Time (h)']
+        metric = df_g['gene_metric']
+
+        pearson, p_pvalue = pearsonr(migration, metric)
+        spearman, s_pvalue = spearmanr(migration, metric)
+        print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
+        print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
+        
+        X = df_g['Migration Time (h)']
+        Y = df_g['gene_metric']
+
+        # It's important to add a constant (intercept) to the model
+        X = sm.add_constant(X)
+
+        # Fit the Ordinary Least Squares (OLS) model
+        model = sm.OLS(Y, X)
+        results = model.fit()
+
+        slope_p_value = results.pvalues['Migration Time (h)']
+        r_squared = results.rsquared
+        slope_coeff = results.params['Migration Time (h)']
+
+        print(f"R-squared: {r_squared:.3g}")
+        print(f"Slope (Coefficient for gene expression): {slope_coeff:.3g}")
+        print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
 
 
 def plot_collagenase_analysis(df, figs_dir, out_type):
