@@ -245,9 +245,9 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     y_mig = df_summary['Migration Time (h)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
     z_mig = df_summary['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
 
-    print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
-    print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
-    print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
+    print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
+    print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
+    print('3D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
 
     plot_tools.run_statistics(x_mig,y_mig,z_mig)
 
@@ -291,9 +291,9 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
         y_mig = df_g['Migration Time (h)'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
         z_mig = df_g['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
 
-        print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
-        print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
-        print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
+        print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
+        print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
+        print('3D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(z_mig), np.median(z_mig), np.std(z_mig), np.min(z_mig), np.max(z_mig)))
             
         plot_tools.run_statistics(x_mig, y_mig, z_mig)
 
@@ -503,9 +503,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         y = df_g['gene_metric'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
         z = df_g['gene_metric'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
 
-        print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
-        print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
-        print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
+        print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
+        print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
+        print('3D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
         
         plot_tools.run_statistics(x,y,z)
 
@@ -516,9 +516,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         y = df_g['Difference'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
         z = df_g['Difference'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
 
-        print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
-        print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
-        print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
+        print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
+        print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
+        print('3D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
         
         plot_tools.run_statistics(x,y,z)
 
@@ -529,9 +529,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         y = df_g['Normalized_metric'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
         z = df_g['Normalized_metric'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
 
-        print('2D PLF: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
-        print('2D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
-        print('3D EMT: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
+        print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x), np.median(x), np.std(x), np.min(x), np.max(x)))
+        print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y), np.median(y), np.std(y), np.min(y), np.max(y)))
+        print('3D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(z), np.median(z), np.std(z), np.min(z), np.max(z)))
         
         plot_tools.run_statistics(x,y,z)
 
@@ -642,7 +642,7 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
             migration[key[g]] = d_g['Migration Time (h)'].values
 
         for c, v in zip(concentrations, migration):
-            print('{5}: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
+            print('{5}: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
 
         print('Concentrations:')
         print(' '.join(['{0} n:{1} |'.format(t, len(v)) for t, v in zip(concentrations, migration)]))
@@ -672,9 +672,9 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         r_squared = results.rsquared
         slope_coeff = results.params['Collagenease concentration (ug/mL)']
 
-        print(f"R-squared: {r_squared:.4f}")
-        print(f"Slope (Coefficient for concentration): {slope_coeff:.4f}")
-        print(f"P-value for the slope: {slope_p_value:.4g}") # Using 'g' for scientific notation if needed
+        print(f"R-squared: {r_squared:.3g}")
+        print(f"Slope (Coefficient for concentration): {slope_coeff:.3g}")
+        print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
 
         alpha = 0.05
         if slope_p_value < alpha:
@@ -827,7 +827,7 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
             values[key[g]] = d_g['Migration Time (h)'].values
 
         for c, v in zip(targets, values):
-            print('{5}: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
+            print('{5}: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
 
         print('Targets:')
         print(' '.join(['{0} n:{1} |'.format(t, len(v)) for t, v in zip(targets, values)]))
@@ -987,9 +987,11 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     X = dfio_scatter['Migration Time (h)'].values
     Y = dfio_scatter['Migration Time InOut (h)'].values
 
-    results = pearsonr(X, Y)
+    p_results = pearsonr(X, Y)
+    r_results = spearmanr(X, Y)
     print('n: {0:d}'.format(n_movies_io))
-    print('Pearson Correlation: {0:.4f} | p-Value: {1}'.format(results.statistic, results.pvalue))
+    print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
+    print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
 
     # Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
     df_io_id = dfio_grouped[dfio_grouped['Data ID']==const.EXAMPLE_IO_ID]
