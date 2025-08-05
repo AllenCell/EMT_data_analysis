@@ -983,16 +983,6 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.rcParams.update({'font.size':16})
     plt.savefig(fr'{figs_dir}/Inside-Outside/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside.{out_type}', dpi=600, transparent=True)
 
-    print('\n\n\n.......Statistical comparison for migration time using Area-at-Mask vs Inside-Outside:')
-    X = dfio_scatter['Migration Time (h)'].values
-    Y = dfio_scatter['Migration Time InOut (h)'].values
-
-    p_results = pearsonr(X, Y)
-    r_results = spearmanr(X, Y)
-    print('n: {0:d}'.format(n_movies_io))
-    print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
-    print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
-
     # Plotting example to show how migration time is estimated from fraction of nuclei outside the basement membrane over time (Fig. 5H )
     df_io_id = dfio_grouped[dfio_grouped['Data ID']==const.EXAMPLE_IO_ID]
     fig,ax = plt.subplots(1,1,figsize=(8,6))
@@ -1006,6 +996,32 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.xlim(left=10)
     plt.tight_layout()
     plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
+
+    print('\n\n\n.......Statistical comparison for migration time using Area-at-Mask vs Inside-Outside:')
+    X = dfio_scatter['Migration Time (h)']
+    Y = dfio_scatter['Migration Time InOut (h)']
+
+    p_results = pearsonr(X.values, Y.values)
+    r_results = spearmanr(X.values, Y.values)
+    print('n: {0:d}'.format(n_movies_io))
+    print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
+    print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
+
+    X = dfio_scatter['Migration Time (h)']
+    Y = dfio_scatter['Migration Time InOut (h)']
+    X = sm.add_constant(X)
+
+    # Fit the Ordinary Least Squares (OLS) model
+    model = sm.OLS(Y, X)
+    results = model.fit()
+    slope_p_value = results.pvalues['Migration Time (h)']
+    r_squared = results.rsquared
+    slope_coeff = results.params['Migration Time (h)']
+
+    print(f"R-squared: {r_squared:.3g}")
+    print(f"Slope (Coefficient for migration timing): {slope_coeff:.3g}")
+    print(f"P-value for the slope: {slope_p_value:.3g}")
+
 
 
 def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
