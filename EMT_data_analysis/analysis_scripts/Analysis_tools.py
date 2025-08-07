@@ -144,6 +144,17 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.{out_type}', transparent=True, dpi=600)
 
+    plot_tools.plot_examples(
+        df_int = df_f,
+        id_plf = const.EXAMPLE_PLF,
+        id_2d = const.EXAMPLE_2D,
+        id_3d = const.EXAMPLE_3D,
+        gene = "H2B",
+        metric = 'Migration Time (h)',
+        variable = 'Area at the glass(square micrometer)',
+        figs_dir = figs_dir+'/Individual_Examples',
+        out_type=out_type)
+
 
 def plot_area_at_glass_h2b(df, figs_dir, out_type):
     """
