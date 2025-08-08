@@ -667,6 +667,13 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         X = df_gene['Collagenease concentration (ug/mL)']
         Y = df_gene['Migration Time (h)']
 
+        fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+        fig_scatter = sns.scatterplot(df_gene, x='Collagenease concentration (ug/mL)', y='Migration Time (h)', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
+        plt.title(f'{g}\nCollagenase vs Migration Time (h)')
+        plt.xlabel('Collagenease Concentration (ug/mL)', fontsize=16)
+        plt.ylabel('Migration Time (h)', fontsize=16)
+        plt.rcParams.update({'font.size':16})
+
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -682,10 +689,17 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         slope_p_value = results.pvalues['Collagenease concentration (ug/mL)']
         r_squared = results.rsquared
         slope_coeff = results.params['Collagenease concentration (ug/mL)']
+        const_coef = results.params['const']
 
         print(f"R-squared: {r_squared:.3g}")
         print(f"Slope (Coefficient for concentration): {slope_coeff:.3g}")
         print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
+
+        xs = [df_gene['Collagenease concentration (ug/mL)'].min(), df_gene['Collagenease concentration (ug/mL)'].max()]
+        ys = [x*slope_coeff+const_coef for x in xs]
+        plt.plot(xs,ys,'--k')
+        plt.savefig(fr'{figs_dir}/Collagenase/Scatter_plot_for_{g}_between_collagenase_conctertion_and_migration_time.{out_type}', dpi=600)
+
 
         alpha = 0.05
         if slope_p_value < alpha:
@@ -752,6 +766,13 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         X = df_gene['MMPi concentration (uM)']
         Y = df_gene['Time of migration first cell']
 
+        fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+        fig_scatter = sns.scatterplot(df_gene, x='MMPi concentration (uM)', y='Time of migration first cell', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
+        plt.title(f'{gene}\nMMPi vs Migration Time (h)')
+        plt.xlabel('MMPi Concentration (ug/mL)', fontsize=16)
+        plt.ylabel('Time of Migration First Cell (h)', fontsize=16)
+        plt.rcParams.update({'font.size':16})
+
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -767,6 +788,13 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         slope_p_value = results.pvalues['MMPi concentration (uM)']
         r_squared = results.rsquared
         slope_coeff = results.params['MMPi concentration (uM)']
+        const_coeff = results.params['const']
+
+        xs = [df_gene['MMPi concentration (uM)'].min(), df_gene['MMPi concentration (uM)'].max()]
+        ys = [x*slope_coeff+const_coeff for x in xs]
+        plt.plot(xs,ys,'--k')
+        plt.savefig(fr'{figs_dir}/MMPi/Scatter_plot_for_{gene}_between_MMPi_conctertion_and_average_migration_time.{out_type}', dpi=600)
+
 
         print(f"R-squared: {r_squared:.4f}")
         print(f"Slope (Coefficient for concentration): {slope_coeff:.4f}")
