@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+import math
 import pandas as pd
 import seaborn as sns
 import plotly.express as px
@@ -47,7 +48,7 @@ def run_all_analyses():
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
 
@@ -144,6 +145,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.{out_type}', transparent=True, dpi=600)
 
+    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     plot_tools.plot_examples(
         df_int = df_f,
         id_plf = const.EXAMPLE_PLF,
@@ -350,7 +352,6 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
         plt.savefig(fr'{figs_dir}/Mean_intensity_plot_{g}_n{n}_mean_line.{out_type}', dpi=600, transparent=True) 
 
-    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     # Time of max EOMES expression (h) examples
     plot_tools.plot_examples(
         df_int = df_int,
@@ -910,6 +911,74 @@ def plot_zo1_heatmaps(df, figs_dir, out_type):
     plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir+'/ZO1', out_type=out_type)
 
 
+def _get_linear_relationship_from_covariance(x, y):
+    """
+    Use eigenvectors of covariance matrix to determine linear mapping between migration times from two methods.
+    This method constructs the covariance matrix for the two sets of migration timing measurements and determines
+    its eigenvectors and eigenvalues. The eigenvector with highest eigenvalue lies along the direction of
+    greatest variation in the data. A line colinear with this vector is used to define a linear
+    mapping between the two migration times. The eigenvalue associated with the second eigenvector,
+    perpendicular to the linear mapping, defines the standard deviatin away from this line.
+
+    Parameters
+    ----------
+    x : pd.Series
+        Migration times measured by the first method
+    y : pd.Series
+        Migration times measured by the second method
+
+    Returns
+    -------
+    slope, intercept : float
+        Slope and intercept of the linear mapping between the two sets of migration times
+    std: float
+        Standard deviation of the migration times from the linear mapping
+    """
+
+    # Format live and fixed features as needed for analysis and calculated the mean of each
+    mean_x = np.mean(x)
+    mean_y = np.mean(y)
+    center = (float(mean_x), float(mean_y))
+
+    # Get covaraince matrix of live and fixed data then calculate its eigenvectors and eigenvalues
+    data = [[x_i, y_i] for x_i, y_i in zip(x, y)]
+    covariance_matrix = np.cov(data, rowvar=False)
+    eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
+
+    # Get indices that would sort the eigenvalues in ascending order
+    sorted_indices = eigenvalues.argsort()[::-1]
+
+    # Sort eigenvalues and eigenvectors
+    eigenvalues = eigenvalues[sorted_indices]
+    eigenvectors = eigenvectors[:, sorted_indices]
+
+    # Get slope and intercept of line defined by first eigenvector
+    slope = eigenvectors[1, 0] / eigenvectors[0, 0]
+    intercept = mean_y - slope * mean_x
+    # Get standard deviation perpendicular to the line defined by the first eigenvector
+    std = np.sqrt(eigenvalues[1])
+
+    return slope, intercept, std
+
+def _get_perpendicular_distance(x_i, y_i, A, B, C):
+  """
+  Calculate the perpendicular distance from a point (x_i, y_i) to a line Ax+By+C=0.
+
+  Args:
+    x_i: x-coordinate of the point
+    y_i: y-coordinate of the point
+    A: coefficient of x in the line equation Ax+By+C=0
+    B: coefficient of y in the line equation Ax+By+C=0
+    C: constant term in the line equation Ax+By+C=0
+
+  Returns:
+    The perpendicular distance from the point to the line.
+  """
+  numerator = abs(A * x_i + B * y_i + C)
+  denominator = math.sqrt(A**2 + B**2)
+  distance = numerator / denominator
+  return distance
+
 def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     """
     Analyzes the inside-outside classification of nuclei in the basement membrane and plots the fraction of nuclei outside the lumen over time.
@@ -1061,6 +1130,34 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print(f"Slope (Coefficient for migration timing): {slope_coeff:.3g}")
     print(f"P-value for the slope: {slope_p_value:.3g}")
 
+    # Using the covariance matrix to define a linear mapping between migration times from two methods
+    X = dfio_scatter['Migration Time (h)']
+    Y = dfio_scatter['Migration Time InOut (h)']
+    slope, intercept, std = _get_linear_relationship_from_covariance(X, Y)
+    print("\n--- Defining a linear relatioship from eigenvectors of covariance matrix ---")
+    print(f"Slope: {slope:.3g}")
+    print(f"Intercept: {intercept:.3g}")
+    print(f"Standard Deviation: {std:.3g}")
+
+    # Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
+    fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
+    fig_scatter = sns.scatterplot(dfio_scatter, x='Migration Time (h)', y='Migration Time InOut (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+    fig_scatter = sns.lineplot(x=[16,36], y=[slope*16+intercept,slope*36+intercept], color='black', linestyle='-', label='Linear mapping', ax=ax)
+    # draw unity line
+    fig_scatter = sns.lineplot(x=[16, 36], y=[16, 36], color='gray', linestyle='--', label='Unity line', ax=ax)
+    plt.xlim(16,36)
+    plt.ylim(16,36)
+
+    plt.xlabel('Migration Time from area at glass (h)', fontsize=16)
+    plt.ylabel('Migration Time fraction of nuclei outside basement membrane (h)', fontsize=16)
+    plt.rcParams.update({'font.size':16})
+    plt.savefig(fr'{figs_dir}/Inside-Outside/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside_with_linearmap.{out_type}', dpi=600, transparent=True)
+
+    # get minimum x or y value
+    sample_val = min(X.min(), Y.min())
+    dist = _get_perpendicular_distance(sample_val, sample_val, slope, -1, intercept)
+    print(f"Distance from linear mapping at ({sample_val},{sample_val}): {dist:.3g}")
+    print(f"Fraction of a standard deviation away from the linear mapping at {sample_val},{sample_val}): {dist/std:.3g}")
 
 
 def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
