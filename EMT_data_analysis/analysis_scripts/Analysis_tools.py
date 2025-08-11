@@ -26,8 +26,7 @@ def run_all_analyses():
     DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv'
     BMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
     BMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
-    # FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
-    FIGS_DIR = "figures/"
+    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
     OUT_TYPE = 'svg'
 
     df, df_bmp = load_and_prep_datasets(
@@ -36,7 +35,6 @@ def run_all_analyses():
         bmp_mig_data_path = BMP_MIG_DATA_PATH,
         figs_dir=FIGS_DIR)
     
-    """
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -45,7 +43,7 @@ def run_all_analyses():
     plot_mean_intensity_by_gene(df, FIGS_DIR, OUT_TYPE)
     plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
-    analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE) """
+    analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR, OUT_TYPE)
