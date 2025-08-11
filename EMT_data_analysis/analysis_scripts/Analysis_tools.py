@@ -333,6 +333,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
     df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
     df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
     df_int['Mean Intensity'] = df_int['Mean Intensity'].replace(0,np.nan)
+    df_int = df_int[df_int['Gene']!='HIST1H2BJ']
 
     # Plotting mean intensity
     for g, d_g in df_int.groupby('Gene'):
