@@ -289,6 +289,7 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     
     df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
     df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
+    df_summary = df_summary[df_summary['Gene']!='AAVS1']
     
     fig_mig_g = px.box(df_summary, y='Migration Time (h)', x='gene_m', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,35),width=1800, height=600)
     fig_mig_g.update_layout(showlegend=False)
@@ -296,6 +297,7 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     fig_mig_g.update_layout(boxgroupgap=0.5, boxgap=0.5)
     fig_mig_g.write_image(rf'{figs_dir}/Migration_box_plot_per_gene_all_conditions.{out_type}', scale=2 )
 
+    df_summary = df_summary[df_summary['Gene']!='CLYBL']
     for g, df_g in df_summary.groupby('Gene'):
         print(f'\n\n\n...statistical analysis for the migration timing per condition for gene={g}')
         x_mig = df_g['Migration Time (h)'][['2D PLF' in val for val in df_g['Experimental Condition'].values]].dropna()
