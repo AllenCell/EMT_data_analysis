@@ -144,6 +144,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.{out_type}', transparent=True, dpi=600)
 
+    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     plot_tools.plot_examples(
         df_int = df_f,
         id_plf = const.EXAMPLE_PLF,
