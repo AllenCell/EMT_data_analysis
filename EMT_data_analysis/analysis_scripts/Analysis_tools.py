@@ -958,24 +958,6 @@ def _get_linear_relationship_from_covariance(x, y):
 
     return slope, intercept, std
 
-def _get_perpendicular_distance(x_i, y_i, A, B, C):
-  """
-  Calculate the perpendicular distance from a point (x_i, y_i) to a line Ax+By+C=0.
-
-  Args:
-    x_i: x-coordinate of the point
-    y_i: y-coordinate of the point
-    A: coefficient of x in the line equation Ax+By+C=0
-    B: coefficient of y in the line equation Ax+By+C=0
-    C: constant term in the line equation Ax+By+C=0
-
-  Returns:
-    The perpendicular distance from the point to the line.
-  """
-  numerator = abs(A * x_i + B * y_i + C)
-  denominator = math.sqrt(A**2 + B**2)
-  distance = numerator / denominator
-  return distance
 
 def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     """
