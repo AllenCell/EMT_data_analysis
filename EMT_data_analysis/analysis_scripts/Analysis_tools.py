@@ -75,7 +75,7 @@ def load_and_prep_datasets(
 
     df.rename(columns={'Inflection Point':'Migration Time (h)', 'Inflection Point InOut':'Migration Time InOut (h)'}, inplace=True)
 
-    # n_filtered_movies=df_f['Movie ID'].nunique()
+    # n_filtered_movies=df_f['Data ID'].nunique()
     # print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
 
     df_bmp = pd.read_csv(bmp_data_path, index_col=None)
@@ -130,11 +130,11 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
 
     # Set up dataset
     df_f = create_df_f(df)
-    df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
-    n_a = df_a['Movie ID'].nunique()
+    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
+    n_a = df_a['Data ID'].nunique()
     fig,ax = plt.subplots(1,1)
     
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Movie ID'):
+    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -172,12 +172,12 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
 
     # Set up dataset
     df_f = create_df_f(df)
-    df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
-    df_a = df_f.groupby(['Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
-    n_a = df_a['Movie ID'].nunique()
+    df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
+    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
+    n_a = df_a['Data ID'].nunique()
     fig, ax = plt.subplots(1,1)
 
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Movie ID'):
+    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a_h2b, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -216,9 +216,9 @@ def plot_migration_timing_all_data(df, figs_dir, out_type):
     df_f = create_df_f(df)
     df_f = df_f.sort_values('Timepoint (h)')
     # Summarizing the dataframe/manifest to have one line/metric per movie
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_f.groupby('Data ID').agg('first').reset_index()
 
-    n_m = df_summary['Movie ID'].nunique()
+    n_m = df_summary['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     fig_mig = px.box(df_summary, x='Condition order for plots', y='Migration Time (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
     fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
@@ -242,8 +242,8 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     df_f = create_df_f(df)
     df_f = df_f.sort_values('Timepoint (h)')
     # Summarizing the dataframe/manifest to have one line/metric per movie
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
-    n_m = df_summary[df_summary['Gene']=='H2B']['Movie ID'].nunique()
+    df_summary = df_f.groupby('Data ID').agg('first').reset_index()
+    n_m = df_summary[df_summary['Gene']=='H2B']['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     
@@ -282,8 +282,8 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     df_f = create_df_f(df)
     df_f = df_f.sort_values('Timepoint (h)')
     # Summarizing the dataframe/manifest to have one line/metric per movie
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
-    n_m = df_summary[df_summary['Gene']=='H2B']['Movie ID'].nunique()
+    df_summary = df_f.groupby('Data ID').agg('first').reset_index()
+    n_m = df_summary[df_summary['Gene']=='H2B']['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     
@@ -330,16 +330,16 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
     df_z = df_f[(df_f['Normalized Z plane']>=0) & (df_f['Normalized Z plane']<10)]
 
     # Grouping by condition and gene and each movie to get mean itnensity over time for each movie
-    df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Movie ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
+    df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
     df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
     df_int['Mean Intensity'] = df_int['Mean Intensity'].replace(0,np.nan)
 
     # Plotting mean intensity
     for g, d_g in df_int.groupby('Gene'):
-        n = d_g['Movie ID'].nunique()
+        n = d_g['Data ID'].nunique()
         
         fig,ax = plt.subplots(1,1)
-        # for scn, df_scn in d_g.groupby('Movie ID'):
+        # for scn, df_scn in d_g.groupby('Data ID'):
         sns.lineplot(d_g, x='Timepoint (h)', y='Mean Intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
         plt.ylabel('Mean intensity (a.u.)', fontsize=14)
         plt.xlabel('Time (h)', fontsize=14)
@@ -417,7 +417,7 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
     # Set up dataset
     df_f = create_df_f(df)
     df_f = df_f.sort_values('Timepoint (h)')
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_f.groupby('Data ID').agg('first').reset_index()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
@@ -626,7 +626,7 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
     Path(rf'{figs_dir}/Collagenase').mkdir(exist_ok=True, parents=True)
     df_coll = df[df['Perturbation']=='Collagenase']
 
-    df_summary = df_coll.drop_duplicates(subset=['Movie ID'])
+    df_summary = df_coll.drop_duplicates(subset=['Data ID'])
     df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'HBSS' not in c else -1)
     df_summary['Collagenease concentration (ug/mL)'] = [float(c.split(' ')[0])  if 'HBSS' not in c else 0 for c in df_summary['Drug Concentration'].values]
     df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
@@ -724,10 +724,10 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     Path(rf'{figs_dir}/MMPi').mkdir(exist_ok=True, parents=True)
     df_coll = df[df['Perturbation']=='MMPi']
 
-    df_summary = df_coll.drop_duplicates(subset=['Movie ID'])
+    df_summary = df_coll.drop_duplicates(subset=['Data ID'])
     df_summary.dropna(subset=['Time of migration first cell'],inplace=True)
 
-    n_m = df_summary['Movie ID'].nunique()
+    n_m = df_summary['Data ID'].nunique()
     df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'MMPi' not in c else -1)
     df_summary['MMPi concentration (uM)'] = [float(c.split(' ')[0])  if 'MMPi' not in c else 0 for c in df_summary['Drug Concentration'].values]
     df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
@@ -823,7 +823,7 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
     """
 
     (Path(figs_dir) / 'CRISPRi').mkdir(parents=True, exist_ok=True)
-    df_f = df[df['Gene']=='CLYBL'].drop_duplicates(subset=['Movie ID'])
+    df_f = df[df['Gene']=='CLYBL'].drop_duplicates(subset=['Data ID'])
 
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
@@ -833,7 +833,7 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
         (df_f['Fixation Status']=='Live Cells')
     ]
 
-    df_summary = df_f.groupby('Movie ID').agg('first').reset_index()
+    df_summary = df_f.groupby('Data ID').agg('first').reset_index()
     df_summary['Colony'] = df_summary['Experimental Condition'].apply(lambda s: s.split(' CRISPRi ')[0] if 'CRISPRi' in s else s)
     df_summary = df_summary[df_summary['Colony']=='3D lumenoid EMT']
     df_summary['Knockdown'] = df_summary['Experimental Condition'].apply(lambda s: s.split(' CRISPRi ')[-1] if 'CRISPRi' in s else 'Control')
@@ -944,7 +944,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
     df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
 
-    df_summary = df_f.groupby(['Movie ID']).agg('first').reset_index()
+    df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
 
     # Filtering out the movie with additional colony or cells in the FOV and merging with feature manifest for plots
 
@@ -956,6 +956,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         df_io.append(pd.read_csv(fn, index_col=None))
 
     df_io = pd.concat(df_io, ignore_index=True)
+    # df_io.rename(columns={'Move ID':'Data ID'})
 
     df_info = df_summary[[
         'Condition order for plots',
@@ -975,13 +976,12 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
 
     dfio_merge=pd.merge(df_io, df_info, on='Movie ID')
 
-    n_movies_io=dfio_merge['Movie ID'].nunique()
+    n_movies_io=dfio_merge['Data ID'].nunique()
 
     # Grouping the data and getting the fraction of 'True' values in 'Inside' column to get fraction of nuclei inside the basement membrane for each movie
     dfio_grouped=dfio_merge.groupby([
         'Condition order for plots',
         'Gene',
-        'Movie ID',
         'Data ID',
         'Time hr'
     ]).agg({
