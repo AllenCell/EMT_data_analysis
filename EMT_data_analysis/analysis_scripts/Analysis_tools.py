@@ -18,8 +18,6 @@ plt.rcParams["font.family"] = "Arial"
 
 warnings.filterwarnings("ignore")
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
 def run_all_analyses():
     """
     Run all analysis functions
@@ -28,7 +26,8 @@ def run_all_analyses():
     DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv'
     BMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
     BMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
-    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
+    # FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
+    FIGS_DIR = "figures/"
     OUT_TYPE = 'svg'
 
     df, df_bmp = load_and_prep_datasets(
@@ -37,6 +36,7 @@ def run_all_analyses():
         bmp_mig_data_path = BMP_MIG_DATA_PATH,
         figs_dir=FIGS_DIR)
     
+    """
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -45,7 +45,7 @@ def run_all_analyses():
     plot_mean_intensity_by_gene(df, FIGS_DIR, OUT_TYPE)
     plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
-    analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
+    analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE) """
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR, OUT_TYPE)
@@ -1140,24 +1140,21 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print(f"Standard Deviation: {std:.3g}")
 
     # Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
+    plt.clf()
     fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
     fig_scatter = sns.scatterplot(dfio_scatter, x='Migration Time (h)', y='Migration Time InOut (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
-    fig_scatter = sns.lineplot(x=[16,36], y=[slope*16+intercept,slope*36+intercept], color='black', linestyle='-', label='Linear mapping', ax=ax)
+    legend_linear_mapping = f"{slope:.3g}x+{intercept:.3g}, $\sigma$={std:.3g}"
+    fig_scatter = sns.lineplot(x=[16,36], y=[slope*16+intercept,slope*36+intercept], color='black', linestyle='-', label=legend_linear_mapping, ax=ax)
     # draw unity line
     fig_scatter = sns.lineplot(x=[16, 36], y=[16, 36], color='gray', linestyle='--', label='Unity line', ax=ax)
     plt.xlim(16,36)
     plt.ylim(16,36)
+    plt.legend()
 
     plt.xlabel('Migration Time from area at glass (h)', fontsize=16)
     plt.ylabel('Migration Time fraction of nuclei outside basement membrane (h)', fontsize=16)
     plt.rcParams.update({'font.size':16})
     plt.savefig(fr'{figs_dir}/Inside-Outside/Scatter_plot_between_computer_migration_area_on_glass_vs_inside_outside_with_linearmap.{out_type}', dpi=600, transparent=True)
-
-    # get minimum x or y value
-    sample_val = min(X.min(), Y.min())
-    dist = _get_perpendicular_distance(sample_val, sample_val, slope, -1, intercept)
-    print(f"Distance from linear mapping at ({sample_val},{sample_val}): {dist:.3g}")
-    print(f"Fraction of a standard deviation away from the linear mapping at {sample_val},{sample_val}): {dist/std:.3g}")
 
 
 def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
@@ -1335,7 +1332,7 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     # Create heatmap of the final intensities for each time for each Label
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
-run_all_analyses()
+
+if __name__ == '__main__':
+    run_all_analyses()
 
