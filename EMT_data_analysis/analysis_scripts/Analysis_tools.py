@@ -1615,17 +1615,12 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
         4:'mediumseagreen'
     }
     cond_order = ['2D PLF', '2D MG', '3D Lum']
-    size = 7
-    ng = len(df_summary['Gene'].unique())
-    nc = len(df_summary['Condition'].unique())
-    plt.figure(figsize=((size+2)*nc, size*ng))
 
-    # Fill panels of figure wiht individual plots of mean immunolabel intensity for different genes
-    # for each round and condition
-    g = 0
+    # Create individual plots of mean immunolabel intensity for different genes for each round and condition
     for gene, df_gene in df_summary.groupby('Gene'):    
         # min_start = {rnd:min([df[df['Condition'] == '2D PLF']['Mean Intensity'].mean() for df in df_rnd[df_rnd['Time (h)']==0]]) for rnd, df_rnd in df_gene.groupby('Round')}
         
+        plt.figure(figsize=(15,5))
         min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF'].groupby('Round')}
         fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
 
@@ -1638,16 +1633,14 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
         legend_handles = []
         for cond in cond_order:
             df_cond = df_gene[df_gene['Condition'] == cond]
-            ax = plt.subplot(ng,nc,g*3+c+1)
-            ax.set_title(gene + ' - ' + cond)
-            ax.set_xlabel('Hour')
-            ax.set_ylabel('Mean Intensity (Fold)')
-
-            # ints = [i/min_start for i in df_cond['Mean Intensity'].values]
-            # ts = df_cond['Time (h)'].values
-
+            
+            plt.figure()
             max_fold = 0
             for rnd, df_rnd in df_cond.groupby('Round'):
+                ax = plt.subplot(1,1,1)
+                ax.set_title(gene + ' - ' + cond)
+                ax.set_xlabel('Hour')
+                ax.set_ylabel('Mean Intensity (Fold)')
                 
                 max_fold = max([max_fold, fold])
                 ax.set_ylim([0,max_fold+0.5])
@@ -1675,14 +1668,12 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
 
                 if len(legend_handles) < n_rnds:
                     legend_handles.append(vplot)
-
             ax.set_xticks(ticks)
             ax.set_xticklabels(ticks)            
             c+=1
 
-        ax.legend()
-        g+=1
-    plt.savefig(f"{FIGS_DIR}/immunolabel_mean_intensities.{OUT_TYPE}")
+            ax.legend()
+            plt.savefig(f"{FIGS_DIR}/{gene} - {cond}.svg")
 
 
 # Run all analyses if this script is run
