@@ -1070,7 +1070,21 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print(f"P-value for the slope: {slope_p_value:.3g}")
 
 def _bland_altman_stats(A: np.ndarray, B: np.ndarray) -> Dict[str, Any]:
-    """Compute Bland–Altman stats + diagnostics (using normal approx for CIs)."""
+    """
+    Compute Bland–Altman stats + diagnostics (using normal approx for CIs).
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    
+    Returns
+    -------
+    Dict: Dictionary containing Bland-Altman statistics
+
+    """
     
     mean_vals = (A + B) / 2.0
     diff_vals = B - A
@@ -1133,7 +1147,20 @@ def _bland_altman_stats(A: np.ndarray, B: np.ndarray) -> Dict[str, Any]:
     }
 
 def _regress_fit(A: np.ndarray, B: np.ndarray) -> Tuple[float, float, float]:
-    """Fit linear regression of B on A and return slope, intercept, and R²."""
+    """
+    Fit linear regression of B on A and return slope, intercept, and R².
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+
+    Returns
+    -------
+    Tuple: slope, intercept, and r2 measurements for a linear regression of the two measurement methods
+    """
     X = sm.add_constant(A)
     fit = sm.OLS(B, X).fit()
     slope = float(fit.params[1])
@@ -1142,7 +1169,27 @@ def _regress_fit(A: np.ndarray, B: np.ndarray) -> Tuple[float, float, float]:
     return slope, intercept, r2
 
 def _plot_scatter(A: np.ndarray, B: np.ndarray, out_svg: Path, title: str, y_label: str) -> Tuple[float, float, float]:
-    """Scatter plot data with regression line and unity line."""
+    """
+    Scatter plot data with regression line and unity line.
+    
+    Parameters:
+    -----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    out_svg: Path
+        Path to where to save output figure svg
+    title: str
+        Title for scatter plot of two measurement methods
+    y_label: str
+        Label for the y axis
+
+    Returns:
+    --------
+    Tuple: slope, intercept and r2 from linear regression of two measurement methods
+           performed as part of the plotting
+    """
     
     slope, intercept, r2 = _regress_fit(A, B)
     lo = float(min(A.min(), B.min()) - 0.5)
@@ -1164,7 +1211,22 @@ def _plot_scatter(A: np.ndarray, B: np.ndarray, out_svg: Path, title: str, y_lab
     return slope, intercept, r2
 
 def _plot_bland_altman(mean_vals: np.ndarray, diff_vals: np.ndarray, out_svg: Path, bias: float, loa_lower: float, loa_upper: float) -> None:
-    """Generate Bland-Altman plot of bias vs means"""
+    """
+    Generate Bland-Altman plot of bias vs means
+
+    mean_vals: np.ndarray
+        Mean of two methods for measuring the migration onset time
+    diff_vals: np.ndarray
+        Difference between two methods for measuring the migration onset time
+    out_svg: Path
+        Path to where to save output figure svg
+    bias: float
+        Mean of bias, or difference, between two measurement methods
+    loa_lower: float
+        Lower limit of agreement
+    loa_upper: flaot
+        Upper limit of agreement
+    """
     
     plt.figure(figsize=(6, 6))
     plt.scatter(mean_vals, diff_vals)
@@ -1179,7 +1241,16 @@ def _plot_bland_altman(mean_vals: np.ndarray, diff_vals: np.ndarray, out_svg: Pa
     plt.close()
 
 def _write_report(s: Dict[str, Any], out_txt: Path) -> None:
-    """Write a text report summarizing Bland–Altman stats."""
+    """
+    Write a text report summarizing Bland–Altman stats.
+    
+    Parameters
+    ----------
+    s : Dict[str, Any]
+        Dictionary containing Bland-Altman statistics
+    out_txt : Path
+        Path to where to save output text report
+    """
     
     # UTF-8 avoids Windows cp1252 errors on characters like "−", "±", "²"
     lines = [
@@ -1199,8 +1270,21 @@ def _write_report(s: Dict[str, Any], out_txt: Path) -> None:
 
 
 def run_bland_altman_analysis(df, FIGS_DIR, a_col="Migration Time (h)", b_col="Migration Time InOut (h)", id_col="Data ID"):
-    """Main function to run Bland-Altmane analysis comaring
-    two different measurement methods for the migration onset timing"""
+    """
+    Main function to run Bland-Altmane analysis comaring
+    two different measurement methods for the migration onset timing
+    
+    df: pd.DataFrame
+        Dataframe containing the experimental data with migration timing information
+    FIGS_DIR: str
+        Directory where the figures will be saved
+    a_col: str
+        Column name for the first measurement method (default: "Migration Time (h)")
+    b_col: str
+        Column name for the second measurement method (default: "Migration Time InOut (h)")
+    id_col: str
+        Column name for the unique identifier of each data point (default: "Data ID")
+    """
 
     # Set up dataset
     df_f = df[(df['Gene']=='H2B') & (df['Experimental Condition']=='3D lumenoid EMT')]
@@ -1452,7 +1536,16 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
 
 
 def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
-    """Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds."""
+    """
+    Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds.
+    
+    Parameters:
+    -----------
+    FIGS_DIR : str
+        Directory where the figures will be saved
+    OUT_TYPE : str
+        File type for the output figures (e.g. 'svg', 'png')
+    """
 
     # Load and set up data
     manifests = {
