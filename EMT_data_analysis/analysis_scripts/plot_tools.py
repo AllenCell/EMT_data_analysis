@@ -99,6 +99,7 @@ def run_statistics (x,y,z):
 
         print('Significant difference between the distributions: applying post hoc with Holm-Bonferroni adjustment of p-value')
         variables=[x, y, z]
+        pd.options.display.float_format = '{:.3g}'.format
         print(sp.posthoc_mannwhitney(variables, p_adjust = 'holm'))
 
     else:
