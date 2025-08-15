@@ -620,7 +620,7 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
     print('\n\n\n.......Statistical comparison for migration time with collagenase treatment:')
     for gene, df_gene in df_summary.groupby('Gene'):
         color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
-        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Footprint Area Based)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Footprint Area Based)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(15,35),width=800, height=600)
         fig_mig_g.update_layout(showlegend=False)
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
@@ -706,7 +706,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     print('\n\n\n.......Statistical comparison for migration time with MMPi treatment:')
     for gene, df_gene in df_summary.groupby('Gene'):
         color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
-        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Manual First Cell Detection)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Manual First Cell Detection)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(15,35),width=800, height=600)
         fig_mig_g.update_layout(showlegend=False)
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
