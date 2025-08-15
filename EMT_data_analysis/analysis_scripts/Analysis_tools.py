@@ -28,7 +28,7 @@ def run_all_analyses():
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
     OUT_TYPE = 'svg'
 
-    df, df_bmp = load_and_prep_datasets(
+    df = load_and_prep_datasets(
         data_path=DATA_PATH,
         figs_dir=FIGS_DIR)
     
@@ -43,7 +43,7 @@ def run_all_analyses():
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df, FIGS_DIR)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
 
@@ -710,7 +710,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     df_coll = df[df['Perturbation']=='MMPi']
 
     df_summary = df_coll.drop_duplicates(subset=['Data ID'])
-    df_summary.dropna(subset=['Time of migration first cell'],inplace=True)
+    df_summary.dropna(subset=['Migration Onset Time (Manual First Cell Detection)'],inplace=True)
 
     n_m = df_summary['Data ID'].nunique()
     df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'MMPi' not in c else -1)
@@ -721,7 +721,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     print('\n\n\n.......Statistical comparison for migration time with MMPi treatment:')
     for gene, df_gene in df_summary.groupby('Gene'):
         color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
-        fig_mig_g = px.box(df_gene, y='Time of migration first cell', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Manual First Cell Detection)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
         fig_mig_g.update_layout(showlegend=False)
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
@@ -734,7 +734,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         migration = [[]]*len(concentrations)
 
         for g, d_g in df_gene.groupby('Drug Concentration'):
-            migration[key[g]] = d_g['Time of migration first cell'].values
+            migration[key[g]] = d_g['Migration Onset Time (Manual First Cell Detection)'].values
 
         for c, v in zip(concentrations, migration):
             print('{5}: Mean {0:.4f} | Median {1:.4f} | St.Dev {2:.4f} | Min: {3:.4f} | Max: {4:.4f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
@@ -749,7 +749,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         # Calculating statistics for downward trend in collagenase concentrations vs migration time
 
         X = df_gene['MMPi concentration (uM)']
-        Y = df_gene['Time of migration first cell']
+        Y = df_gene['Migration Onset Time (Manual First Cell Detection)']
 
         fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
         fig_scatter = sns.scatterplot(df_gene, x='MMPi concentration (uM)', y='Time of migration first cell', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
@@ -1048,9 +1048,10 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
 
 
 
-def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
+def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
 
+    df_BMP = df[df['Perturbation']=='LDN']
     def _parse_treatment(s):
         s = s.replace('BMP4 EMT','BMP4')
         s = s.split('BMP4')
