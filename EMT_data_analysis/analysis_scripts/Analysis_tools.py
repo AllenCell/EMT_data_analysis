@@ -1064,7 +1064,7 @@ def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
     df_BMP['Colony Type'] = df_BMP['Experimental Condition'].apply(lambda s: s.split(' BMP4')[0])
 
     df_BMP['Condition order for plots']=df_BMP['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF' in x else 'b.2D EMT' if '2D colony' in x else 'c.3D EMT')
-    df_BMP['Treatment order for plots']=df_BMP['Treatment'].apply(lambda x: 'b.BMP4 LDN 0.1uM' if '0.1' in x else 'c.BMP4 LDN 0.5uM' if '0.5' in x else 'a.BMP4')
+    df_BMP['Treatment order for plots']=df_BMP['Treatment'].apply(lambda x: 'b.LDN 0.1uM' if '0.1' in x else 'c.cLDN 0.5uM' if '0.5' in x else 'a.Control')
 
     df_BMP = df_BMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
 
