@@ -24,16 +24,12 @@ def run_all_analyses():
     Run all analysis functions
     """
 
-    DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/Complete EMT Data - Segmentation Data.csv'
-    BMP_DATA_PATH ='/allen/aics/emt/qc_and_scoring/Dataset making/July/July 24/Leica files with path to bad omezarr July 24 2025.csv'
-    BMP_MIG_DATA_PATH = '/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/GE00006359_FINAL_BMP_Inhibitor_Scores_update_1.csv'
-    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/full_dataset_figures/'
+    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 13/Complete EMT Data with IF.csv'
+    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
     OUT_TYPE = 'svg'
 
     df, df_bmp = load_and_prep_datasets(
         data_path=DATA_PATH,
-        bmp_data_path = BMP_DATA_PATH, 
-        bmp_mig_data_path = BMP_MIG_DATA_PATH,
         figs_dir=FIGS_DIR)
     
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -53,7 +49,7 @@ def run_all_analyses():
 
 
 def load_and_prep_datasets(
-        data_path, bmp_data_path, bmp_mig_data_path, figs_dir):
+        data_path, figs_dir):
 
     # figs_dir = io.setup_base_directory_name("figures")
     # df = io.load_image_analysis_extracted_features(load_from_aws=True)
@@ -73,22 +69,7 @@ def load_and_prep_datasets(
     df = df[(df['Gene']!='EOMES|TBR2')&(df['Gene']!='TBR2|EOMES')]
     df['Gene']=df['Gene'].apply(lambda x: 'H2B' if 'H2B' in x else x)
 
-    df.rename(columns={'Inflection Point':'Migration Time (h)', 'Inflection Point InOut':'Migration Time InOut (h)'}, inplace=True)
-
-    # n_filtered_movies=df_f['Data ID'].nunique()
-    # print(f'No. of movies for analysis post filtering ={n_filtered_movies} ')
-
-    df_bmp = pd.read_csv(bmp_data_path, index_col=None)
-    df_bmp_mig = pd.read_csv(bmp_mig_data_path, index_col=None)
-    
-    df_bmp_mig.rename(columns={'Plate_barcode': 'Plate Barcode', 'Well_label': 'Well Label', 'Average_onset_of_migration':'Average Migration Onset (h)'}, inplace=True)
-
-    df_bmp = pd.merge(df_bmp, df_bmp_mig, how='inner', on=['Plate Barcode', 'Well Label'])
-    df_bmp = df_bmp[['Plate Barcode', 'Well Label', 'Experimental Condition', 'Average Migration Onset (h)']]
-    df_bmp.replace('NM',np.nan, inplace=True)
-    df_bmp['Average Migration Onset (h)'] = df_bmp['Average Migration Onset (h)'].apply(lambda x: float(x))
-
-    return df, df_bmp
+    return df
 
 
 def create_df_f(df, time_interval=30):
@@ -130,7 +111,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
 
     # Set up dataset
     df_f = create_df_f(df)
-    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
+    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
     n_a = df_a['Data ID'].nunique()
     fig,ax = plt.subplots(1,1)
     
@@ -151,7 +132,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
         id_2d = const.EXAMPLE_2D,
         id_3d = const.EXAMPLE_3D,
         gene = "H2B",
-        metric = 'Migration Time (h)',
+        metric = 'Migration Onset Time (Footprint Area Based)',
         variable = 'Area at the glass(square micrometer)',
         figs_dir = figs_dir+'/Individual_Examples',
         out_type=out_type)
@@ -173,8 +154,8 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
 
     # Set up dataset
     df_f = create_df_f(df)
-    df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
-    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Time (h)':'first'}).reset_index()
+    df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
+    df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
     n_a = df_a['Data ID'].nunique()
     fig, ax = plt.subplots(1,1)
 
@@ -194,7 +175,7 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
         id_2d = const.EXAMPLE_2D,
         id_3d = const.EXAMPLE_3D,
         gene = "Example",
-        metric = 'Migration Time (h)',
+        metric = 'Migration Onset Time (Footprint Area Based)',
         variable = 'Area at the glass(square micrometer)',
         figs_dir = figs_dir)
 
@@ -221,8 +202,8 @@ def plot_migration_timing_all_data(df, figs_dir, out_type):
 
     n_m = df_summary['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
-    fig_mig = px.box(df_summary, x='Condition order for plots', y='Migration Time (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
-    fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
+    fig_mig = px.box(df_summary, x='Condition order for plots', y='Migration Onset Time (Footprint Area Based)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
+    fig_mig.update_layout(yaxis_title='Migration Onset Time (Footprint Area Based)',font=dict(size=18))
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_n{n_m}.{out_type}', scale=2 )
 
 
@@ -248,14 +229,14 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     
-    fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Time (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
-    fig_mig.update_layout(yaxis_title='Migration Time (h)',font=dict(size=18))
+    fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Onset Time (Footprint Area Based)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
+    fig_mig.update_layout(yaxis_title='Migration Onset Time (Footprint Area Based)',font=dict(size=18))
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}.{out_type}', scale=2 )
 
     print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for H2B...')
-    x_mig = df_summary['Migration Time (h)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
-    y_mig = df_summary['Migration Time (h)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
-    z_mig = df_summary['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    x_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    y_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
+    z_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
 
     print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
     print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
@@ -292,7 +273,7 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     df_summary = df_summary.sort_values(['gene_m','Condition order for plots'])
     df_summary = df_summary[df_summary['Gene']!='AAVS1']
     
-    fig_mig_g = px.box(df_summary, y='Migration Time (h)', x='gene_m', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,35),width=1800, height=600)
+    fig_mig_g = px.box(df_summary, y='Migration Onset Time (Footprint Area Based)', x='gene_m', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(10,35),width=1800, height=600)
     fig_mig_g.update_layout(showlegend=False)
     fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
     fig_mig_g.update_layout(boxgroupgap=0.5, boxgap=0.5)
@@ -301,9 +282,9 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     df_summary = df_summary[df_summary['Gene']!='CLYBL']
     for g, df_g in df_summary.groupby('Gene'):
         print(f'\n\n\n...statistical analysis for the migration timing per condition for gene={g}')
-        x_mig = df_g['Migration Time (h)'][['2D PLF' in val for val in df_g['Experimental Condition'].values]].dropna()
-        y_mig = df_g['Migration Time (h)'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
-        z_mig = df_g['Migration Time (h)'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
+        x_mig = df_g['Migration Onset Time (Footprint Area Based)'][['2D PLF' in val for val in df_g['Experimental Condition'].values]].dropna()
+        y_mig = df_g['Migration Onset Time (Footprint Area Based)'][['2D colony EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
+        z_mig = df_g['Migration Onset Time (Footprint Area Based)'][['3D lumenoid EMT' in val for val in df_g['Experimental Condition'].values]].dropna()
 
         print('2D PLF: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(x_mig), np.median(x_mig), np.std(x_mig), np.min(x_mig), np.max(x_mig)))
         print('2D EMT: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(y_mig), np.median(y_mig), np.std(y_mig), np.min(y_mig), np.max(y_mig)))
@@ -429,23 +410,23 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
 
     # Compiling data for the plots
     df_eomes = df_summary[df_summary.Gene=='EOMES']
-    df_eomes['Difference']=df_eomes['Time of max EOMES expression (h)']-df_eomes['Migration Time (h)']
-    df_eomes['Normalized_metric']=df_eomes['Time of max EOMES expression (h)']/df_eomes['Migration Time (h)']
+    df_eomes['Difference']=df_eomes['Time of max EOMES expression (h)']-df_eomes['Migration Onset Time (Footprint Area Based)']
+    df_eomes['Normalized_metric']=df_eomes['Time of max EOMES expression (h)']/df_eomes['Migration Onset Time (Footprint Area Based)']
     df_eomes.rename(columns={'Time of max EOMES expression (h)':'gene_metric'}, inplace=True)
 
     df_tbxt = df_summary[df_summary.Gene=='TBXT']
-    df_tbxt['Difference']=df_tbxt['Time of max TBXT expression (h)']-df_tbxt['Migration Time (h)']
-    df_tbxt['Normalized_metric']=df_tbxt['Time of max TBXT expression (h)']/df_tbxt['Migration Time (h)']
+    df_tbxt['Difference']=df_tbxt['Time of max TBXT expression (h)']-df_tbxt['Migration Onset Time (Footprint Area Based)']
+    df_tbxt['Normalized_metric']=df_tbxt['Time of max TBXT expression (h)']/df_tbxt['Migration Onset Time (Footprint Area Based)']
     df_tbxt.rename(columns={'Time of max TBXT expression (h)':'gene_metric'}, inplace=True)
 
     df_cdh = df_summary[df_summary.Gene=='CDH1']
-    df_cdh['Difference']=df_cdh['Time of inflection of E-cad expression (h)']-df_cdh['Migration Time (h)']
-    df_cdh['Normalized_metric']=df_cdh['Time of inflection of E-cad expression (h)']/df_cdh['Migration Time (h)']
+    df_cdh['Difference']=df_cdh['Time of inflection of E-cad expression (h)']-df_cdh['Migration Onset Time (Footprint Area Based)']
+    df_cdh['Normalized_metric']=df_cdh['Time of inflection of E-cad expression (h)']/df_cdh['Migration Onset Time (Footprint Area Based)']
     df_cdh.rename(columns={'Time of inflection of E-cad expression (h)':'gene_metric'}, inplace=True)
 
     df_sox = df_summary[df_summary.Gene=='SOX2']
-    df_sox['Difference']=df_sox['Time of half-maximal SOX2 expression (h)']-df_sox['Migration Time (h)']
-    df_sox['Normalized_metric']=df_sox['Time of half-maximal SOX2 expression (h)']/df_sox['Migration Time (h)']
+    df_sox['Difference']=df_sox['Time of half-maximal SOX2 expression (h)']-df_sox['Migration Onset Time (Footprint Area Based)']
+    df_sox['Normalized_metric']=df_sox['Time of half-maximal SOX2 expression (h)']/df_sox['Migration Onset Time (Footprint Area Based)']
     df_sox.rename(columns={'Time of half-maximal SOX2 expression (h)':'gene_metric'},inplace=True)
 
     df_comb=pd.concat([df_cdh,df_eomes,df_sox,df_tbxt])
@@ -500,13 +481,13 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
     }
     for g, df_g in df_comb.groupby('Gene'):
         fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-        fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Time (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+        fig_scatter = sns.scatterplot(df_g, x='gene_metric', y='Migration Onset Time (Footprint Area Based)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
         plt.xlim(10,50)
         plt.ylim(10,50)
 
-        plt.title(f'{g}\n{metric_dict[g]} vs Migration Time (h)')
+        plt.title(f'{g}\n{metric_dict[g]} vs Migration Onset Time (Footprint Area Based)')
         plt.xlabel(metric_dict[g], fontsize=16)
-        plt.ylabel('Migration Time (h)', fontsize=16)
+        plt.ylabel('Migration Onset Time (Footprint Area Based)', fontsize=16)
         plt.rcParams.update({'font.size':16})
         plt.savefig(fr'{figs_dir}/Scatter_plot_between_{g}_metric_and_migration_time.{out_type}', dpi=600)
 
@@ -558,7 +539,7 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         for cond in ['2D PLF', '2D colony EMT', '3D lumenoid EMT']:
             print('\n-----------')
             print(f'Condition: {cond}')
-            migration = df_g['Migration Time (h)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+            migration = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             metric = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
         
             pearson, p_pvalue = pearsonr(migration, metric)
@@ -566,7 +547,7 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
             print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
             print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
 
-            X = df_g['Migration Time (h)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+            X = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             Y = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
 
             # It's important to add a constant (intercept) to the model
@@ -576,16 +557,16 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
             model = sm.OLS(Y, X)
             results = model.fit()
 
-            slope_p_value = results.pvalues['Migration Time (h)']
+            slope_p_value = results.pvalues['Migration Onset Time (Footprint Area Based)']
             r_squared = results.rsquared
-            slope_coeff = results.params['Migration Time (h)']
+            slope_coeff = results.params['Migration Onset Time (Footprint Area Based)']
 
             print(f"R-squared: {r_squared:.3g}")
             print(f"Slope (Coefficient for gene expression): {slope_coeff:.3g}")
             print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
 
         print('\n\n-------Statistics for entire metric------------')
-        migration = df_g['Migration Time (h)']
+        migration = df_g['Migration Onset Time (Footprint Area Based)']
         metric = df_g['gene_metric']
 
         pearson, p_pvalue = pearsonr(migration, metric)
@@ -593,7 +574,7 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
         print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
         
-        X = df_g['Migration Time (h)']
+        X = df_g['Migration Onset Time (Footprint Area Based)']
         Y = df_g['gene_metric']
 
         # It's important to add a constant (intercept) to the model
@@ -603,9 +584,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         model = sm.OLS(Y, X)
         results = model.fit()
 
-        slope_p_value = results.pvalues['Migration Time (h)']
+        slope_p_value = results.pvalues['Migration Onset Time (Footprint Area Based)']
         r_squared = results.rsquared
-        slope_coeff = results.params['Migration Time (h)']
+        slope_coeff = results.params['Migration Onset Time (Footprint Area Based)']
 
         print(f"R-squared: {r_squared:.3g}")
         print(f"Slope (Coefficient for gene expression): {slope_coeff:.3g}")
@@ -641,7 +622,7 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
     print('\n\n\n.......Statistical comparison for migration time with collagenase treatment:')
     for gene, df_gene in df_summary.groupby('Gene'):
         color_map={tgt:'orange' for tgt in df_gene['Drug Concentration'].unique()}
-        fig_mig_g = px.box(df_gene, y='Migration Time (h)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
+        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Footprint Area Based)', x='Drug Concentration', color='Drug Concentration', color_discrete_map=color_map, points='all', template='simple_white',range_y=(10,40),width=800, height=600)
         fig_mig_g.update_layout(showlegend=False)
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
@@ -654,7 +635,7 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         migration = [[]]*len(concentrations)
 
         for g, d_g in df_gene.groupby('Drug Concentration'):
-            migration[key[g]] = d_g['Migration Time (h)'].values
+            migration[key[g]] = d_g['Migration Onset Time (Footprint Area Based)'].values
 
         for c, v in zip(concentrations, migration):
             print('{5}: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
@@ -669,13 +650,13 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         # Calculating statistics for downward trend in collagenase concentrations vs migration time
 
         X = df_gene['Collagenease concentration (ug/mL)']
-        Y = df_gene['Migration Time (h)']
+        Y = df_gene['Migration Onset Time (Footprint Area Based)']
 
         fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-        fig_scatter = sns.scatterplot(df_gene, x='Collagenease concentration (ug/mL)', y='Migration Time (h)', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
-        plt.title(f'{g}\nCollagenase vs Migration Time (h)')
+        fig_scatter = sns.scatterplot(df_gene, x='Collagenease concentration (ug/mL)', y='Migration Onset Time (Footprint Area Based)', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
+        plt.title(f'{g}\nCollagenase vs Migration Onset Time (Footprint Area Based)')
         plt.xlabel('Collagenease Concentration (ug/mL)', fontsize=16)
-        plt.ylabel('Migration Time (h)', fontsize=16)
+        plt.ylabel('Migration Onset Time (Footprint Area Based)', fontsize=16)
         plt.rcParams.update({'font.size':16})
 
         # It's important to add a constant (intercept) to the model
@@ -772,7 +753,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
 
         fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
         fig_scatter = sns.scatterplot(df_gene, x='MMPi concentration (uM)', y='Time of migration first cell', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
-        plt.title(f'{gene}\nMMPi vs Migration Time (h)')
+        plt.title(f'{gene}\nMMPi vs Migration Onset Time (Footprint Area Based)')
         plt.xlabel('MMPi Concentration (ug/mL)', fontsize=16)
         plt.ylabel('Time of Migration First Cell (h)', fontsize=16)
         plt.rcParams.update({'font.size':16})
@@ -854,7 +835,7 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
 
         color_map={tgt:'orange' for tgt in df_gene['Condition order for plots'].unique()}
 
-        fig_mig_g = px.box(df_gene, y='Migration Time (h)', x='Knockdown', points='all', color='Condition order for plots', color_discrete_map=color_map, template='simple_white',range_y=(10,35),width=800, height=600)
+        fig_mig_g = px.box(df_gene, y='Migration Onset Time (Footprint Area Based)', x='Knockdown', points='all', color='Condition order for plots', color_discrete_map=color_map, template='simple_white',range_y=(10,35),width=800, height=600)
         fig_mig_g.update_layout(showlegend=False)
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.5)
@@ -867,7 +848,7 @@ def analyze_crispr_knockdown_experiments(df, figs_dir, out_type):
         values = [[]]*len(targets)
 
         for g, d_g in df_gene.groupby('Knockdown'):
-            values[key[g]] = d_g['Migration Time (h)'].values
+            values[key[g]] = d_g['Migration Onset Time (Footprint Area Based)'].values
 
         for c, v in zip(targets, values):
             print('{5}: Mean {0:.2f} | Median {1:.2f} | St.Dev {2:.2f} | Min: {3:.2f} | Max: {4:.2f}'.format(np.mean(v), np.median(v), np.std(v), np.min(v), np.max(v), c))
@@ -938,8 +919,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         (df_f['Image Size Z']==30)& \
         (df_f['Fixation Status']=='Live Cells')
     ]
-    df_f['Migration Time InOut (h)'].replace('',np.nan, inplace=True)
-    df_f = df_f.dropna(subset=['Migration Time InOut (h)'])
+    df_f['Migration Onset Time (Inside/Outside Basement Membrane Based)'].replace('',np.nan, inplace=True)
+    df_f = df_f.dropna(subset=['Migration Onset Time (Inside/Outside Basement Membrane Based)'])
 
     # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
     time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
@@ -967,8 +948,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         'Movie ID',
         'Data ID',
         'Gene',
-        'Migration Time (h)',
-        'Migration Time InOut (h)', 
+        'Migration Onset Time (Footprint Area Based)',
+        'Migration Onset Time (Inside/Outside Basement Membrane Based)', 
         'Timepoint (h)',
         'Bottom Z plane', 
         'Dataset',
@@ -990,8 +971,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         'Time hr'
     ]).agg({
         'Inside':'mean', 
-        'Migration Time (h)':'first', 
-        'Migration Time InOut (h)':'first'
+        'Migration Onset Time (Footprint Area Based)':'first', 
+        'Migration Onset Time (Inside/Outside Basement Membrane Based)':'first'
     }).reset_index()
     dfio_grouped['Fraction_outside']=1-dfio_grouped['Inside'] #fraction of nuclei outside the basement membrane
 
@@ -1011,13 +992,13 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
         'Condition order for plots',
         'Data ID',
     ]).agg({
-        'Migration Time (h)':'first', 
-        'Migration Time InOut (h)':'first'
+        'Migration Onset Time (Footprint Area Based)':'first', 
+        'Migration Onset Time (Inside/Outside Basement Membrane Based)':'first'
     })
 
     # Plotting migration time estimated from inside and outside classification of nuclei w.r.t basement memebrane vs migration time estimated from area at the glass (Fig. 5I)
     fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-    fig_scatter = sns.scatterplot(dfio_scatter, x='Migration Time (h)', y='Migration Time InOut (h)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
+    fig_scatter = sns.scatterplot(dfio_scatter, x='Migration Onset Time (Footprint Area Based)', y='Migration Onset Time (Inside/Outside Basement Membrane Based)', hue='Condition order for plots', palette=const.COLOR_MAP, s=100, alpha=0.7, linewidth=2, edgecolor='coral', legend=False)
     plt.xlim(20,36)
     plt.ylim(20,36)
 
@@ -1030,7 +1011,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     df_io_id = dfio_grouped[dfio_grouped['Data ID']==const.EXAMPLE_IO_ID]
     fig,ax = plt.subplots(1,1,figsize=(8,6))
 
-    x_io = df_io_id['Migration Time InOut (h)'].values[0]
+    x_io = df_io_id['Migration Onset Time (Inside/Outside Basement Membrane Based)'].values[0]
     y_io = df_io_id['Fraction_outside'][df_io_id['Time hr']==x_io].values[0]
     ax.plot(df_io_id['Time hr'],df_io_id['Fraction_outside'], c='orange', linewidth=3)
     ax.scatter(x_io,y_io,c='black', marker='D', s=100) 
@@ -1041,8 +1022,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     plt.savefig(fr'{figs_dir}/Individual_Examples/Example_migration_estimation_fraction_nuclei_outside_basement_membrane.{out_type}', dpi=600)
 
     print('\n\n\n.......Statistical comparison for migration time using Area-at-Mask vs Inside-Outside:')
-    X = dfio_scatter['Migration Time (h)']
-    Y = dfio_scatter['Migration Time InOut (h)']
+    X = dfio_scatter['Migration Onset Time (Footprint Area Based)']
+    Y = dfio_scatter['Migration Onset Time (Inside/Outside Basement Membrane Based)']
 
     p_results = pearsonr(X.values, Y.values)
     r_results = spearmanr(X.values, Y.values)
@@ -1050,16 +1031,16 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
     print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
 
-    X = dfio_scatter['Migration Time (h)']
-    Y = dfio_scatter['Migration Time InOut (h)']
+    X = dfio_scatter['Migration Onset Time (Footprint Area Based)']
+    Y = dfio_scatter['Migration Onset Time (Inside/Outside Basement Membrane Based)']
     X = sm.add_constant(X)
 
     # Fit the Ordinary Least Squares (OLS) model
     model = sm.OLS(Y, X)
     results = model.fit()
-    slope_p_value = results.pvalues['Migration Time (h)']
+    slope_p_value = results.pvalues['Migration Onset Time (Footprint Area Based)']
     r_squared = results.rsquared
-    slope_coeff = results.params['Migration Time (h)']
+    slope_coeff = results.params['Migration Onset Time (Footprint Area Based)']
 
     print(f"R-squared: {r_squared:.3g}")
     print(f"Slope (Coefficient for migration timing): {slope_coeff:.3g}")
@@ -1087,8 +1068,8 @@ def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
     df_BMP = df_BMP.sort_values(by=['Condition order for plots', 'Treatment order for plots'])
 
     for col, df_col in df_BMP.groupby('Colony Type'):
-        fig_mig = px.box(df_col, x='Treatment', y='Average Migration Onset (h)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), range_x=(-0.5,2.5), width=800, height=600)
-        fig_mig.update_layout(yaxis_title='Average Migration Onset (h)',font=dict(size=18))
+        fig_mig = px.box(df_col, x='Treatment', y='Migration Onset Time (Manual First Cell Detection)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white', range_y=(25,65), range_x=(-0.5,2.5), width=800, height=600)
+        fig_mig.update_layout(yaxis_title='Migration Onset Time (Manual First Cell Detection)',font=dict(size=18))
         fig_mig.update_layout(showlegend=False)
 
         col_type = col.replace(' ','-')
