@@ -4,12 +4,15 @@ import pandas as pd
 import seaborn as sns
 import plotly.express as px
 import matplotlib.pyplot as plt
+from typing import Tuple, Dict, Any
 from EMT_data_analysis.tools import io, const
 from EMT_data_analysis.analysis_scripts import plot_tools
 from pathlib import Path
 import scikit_posthocs as sp
 from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.stattools import jarque_bera
 
 # Set font to be Arial and configure text in figures to be editable in Adobe Illustrator
 plt.rcParams["pdf.fonttype"] = 42
@@ -17,8 +20,6 @@ plt.rcParams["font.family"] = "Arial"
 
 warnings.filterwarnings("ignore")
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
 def run_all_analyses():
     """
     Run all analysis functions
@@ -50,6 +51,9 @@ def run_all_analyses():
     plot_bmp_inhibitor_migration(df_bmp, FIGS_DIR)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
+    run_bland_altman_analysis(df, FIGS_DIR)
+    immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE)
+    
 
 
 def load_and_prep_datasets(
@@ -1065,7 +1069,295 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print(f"Slope (Coefficient for migration timing): {slope_coeff:.3g}")
     print(f"P-value for the slope: {slope_p_value:.3g}")
 
+def _bland_altman_stats(A: np.ndarray, B: np.ndarray) -> Dict[str, Any]:
+    """
+    Compute Bland–Altman stats + diagnostics (using normal approx for CIs).
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    
+    Returns
+    -------
+    Dict: Dictionary containing Bland-Altman statistics
 
+    """
+    
+    mean_vals = (A + B) / 2.0
+    diff_vals = B - A
+    n = diff_vals.size
+
+    bias = float(diff_vals.mean())
+    sd = float(diff_vals.std(ddof=1))
+    z = 1.96  # 95% normal quantile
+
+    loa_lower = bias - z * sd
+    loa_upper = bias + z * sd
+
+    # 95% CI for bias (normal approx)
+    se_bias = sd / np.sqrt(n)
+    bias_ci_low = bias - z * se_bias
+    bias_ci_high = bias + z * se_bias
+
+    # 95% CIs for LoA (Bland & Altman 1999)
+    se_loa = sd * np.sqrt(1.0 / n + (z**2) / (2 * (n - 1)))
+    loa_lower_ci_low = loa_lower - z * se_loa
+    loa_lower_ci_high = loa_lower + z * se_loa
+    loa_upper_ci_low = loa_upper - z * se_loa
+    loa_upper_ci_high = loa_upper + z * se_loa
+
+    # Normality of differences (Jarque–Bera via statsmodels)
+    jb_stat, jb_p, _, _ = jarque_bera(diff_vals)
+
+    # Proportional bias: diff ~ mean (OLS with intercept)
+    X = sm.add_constant(mean_vals)
+    ols = sm.OLS(diff_vals, X).fit()
+    slope = float(ols.params[1])
+    slope_p = float(ols.pvalues[1])
+    r2_prop = float(ols.rsquared)
+
+    # Heteroscedasticity (Breusch–Pagan) on residuals vs mean
+    bp_stat, bp_p, _, _ = het_breuschpagan(ols.resid, X)
+
+    return {
+        "n": int(n),
+        "bias": bias,
+        "bias_ci_low": float(bias_ci_low),
+        "bias_ci_high": float(bias_ci_high),
+        "sd_diff": sd,
+        "loa_lower": float(loa_lower),
+        "loa_upper": float(loa_upper),
+        "loa_lower_ci_low": float(loa_lower_ci_low),
+        "loa_lower_ci_high": float(loa_lower_ci_high),
+        "loa_upper_ci_low": float(loa_upper_ci_low),
+        "loa_upper_ci_high": float(loa_upper_ci_high),
+        "normality_test": "Jarque–Bera",
+        "normality_stat": float(jb_stat),
+        "normality_p": float(jb_p),
+        "prop_bias_slope": slope,
+        "prop_bias_pval": slope_p,
+        "prop_bias_r2": r2_prop,
+        "breusch_pagan_stat": float(bp_stat),
+        "breusch_pagan_pval": float(bp_p),
+        "mean_vals": mean_vals,
+        "diff_vals": diff_vals,
+    }
+
+def _regress_fit(A: np.ndarray, B: np.ndarray) -> Tuple[float, float, float]:
+    """
+    Fit linear regression of B on A and return slope, intercept, and R².
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+
+    Returns
+    -------
+    Tuple: slope, intercept, and r2 measurements for a linear regression of the two measurement methods
+    """
+    X = sm.add_constant(A)
+    fit = sm.OLS(B, X).fit()
+    slope = float(fit.params[1])
+    intercept = float(fit.params[0])
+    r2 = float(fit.rsquared)
+    return slope, intercept, r2
+
+def _plot_scatter(A: np.ndarray, B: np.ndarray, out_svg: Path, title: str, y_label: str) -> Tuple[float, float, float]:
+    """
+    Scatter plot data with regression line and unity line.
+    
+    Parameters:
+    -----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    out_svg: Path
+        Path to where to save output figure svg
+    title: str
+        Title for scatter plot of two measurement methods
+    y_label: str
+        Label for the y axis
+
+    Returns:
+    --------
+    Tuple: slope, intercept and r2 from linear regression of two measurement methods
+           performed as part of the plotting
+    """
+    
+    slope, intercept, r2 = _regress_fit(A, B)
+    lo = float(min(A.min(), B.min()) - 0.5)
+    hi = float(max(A.max(), B.max()) + 0.5)
+    xline = np.array([lo, hi])
+    yline = intercept + slope * xline
+
+    plt.figure(figsize=(6, 6))
+    plt.scatter(A, B)
+    plt.plot([lo, hi], [lo, hi], linestyle="--")  # unity
+    plt.plot(xline, yline, linestyle="-")         # regression
+    plt.xlim(lo, hi); plt.ylim(lo, hi)
+    plt.xlabel("Method A: area-at-glass (h)")
+    plt.ylabel(y_label)
+    plt.title(f"{title} (slope={slope:.3f}, R²={r2:.3f})")
+    plt.tight_layout()
+    plt.savefig(out_svg, format="svg")
+    plt.close()
+    return slope, intercept, r2
+
+def _plot_bland_altman(mean_vals: np.ndarray, diff_vals: np.ndarray, out_svg: Path, bias: float, loa_lower: float, loa_upper: float) -> None:
+    """
+    Generate Bland-Altman plot of bias vs means
+
+    mean_vals: np.ndarray
+        Mean of two methods for measuring the migration onset time
+    diff_vals: np.ndarray
+        Difference between two methods for measuring the migration onset time
+    out_svg: Path
+        Path to where to save output figure svg
+    bias: float
+        Mean of bias, or difference, between two measurement methods
+    loa_lower: float
+        Lower limit of agreement
+    loa_upper: flaot
+        Upper limit of agreement
+    """
+    
+    plt.figure(figsize=(6, 6))
+    plt.scatter(mean_vals, diff_vals)
+    plt.axhline(bias, linestyle="--")
+    plt.axhline(loa_lower, linestyle="--")
+    plt.axhline(loa_upper, linestyle="--")
+    plt.xlabel("Mean of methods (h)")
+    plt.ylabel("Difference (B − A) (h)")
+    plt.title(f"Bland–Altman (bias={bias:+.2f} h, LoA [{loa_lower:+.2f}, {loa_upper:+.2f}] h)")
+    plt.tight_layout()
+    plt.savefig(out_svg, format="svg")
+    plt.close()
+
+def _write_report(s: Dict[str, Any], out_txt: Path) -> None:
+    """
+    Write a text report summarizing Bland–Altman stats.
+    
+    Parameters
+    ----------
+    s : Dict[str, Any]
+        Dictionary containing Bland-Altman statistics
+    out_txt : Path
+        Path to where to save output text report
+    """
+    
+    # UTF-8 avoids Windows cp1252 errors on characters like "−", "±", "²"
+    lines = [
+        f"n = {s['n']}",
+        f"Mean bias (B − A): {s['bias']:+.2f} h",
+        f"95% CI for bias: [{s['bias_ci_low']:+.2f}, {s['bias_ci_high']:+.2f}] h",
+        f"SD of differences: {s['sd_diff']:.2f} h",
+        f"95% LoA: [{s['loa_lower']:+.2f}, {s['loa_upper']:+.2f}] h",
+        f"95% CI for lower LoA: [{s['loa_lower_ci_low']:+.2f}, {s['loa_lower_ci_high']:+.2f}] h",
+        f"95% CI for upper LoA: [{s['loa_upper_ci_low']:+.2f}, {s['loa_upper_ci_high']:+.2f}] h",
+        f"Proportional bias (diff ~ mean): slope = {s['prop_bias_slope']:+.2f} h per hour, "
+        f"p = {s['prop_bias_pval']:.2g}, R² = {s['prop_bias_r2']:.2f}",
+        f"Normality ({s['normality_test']}): stat = {s['normality_stat']:.2f}, p = {s['normality_p']:.2g}",
+        f"Heteroscedasticity (Breusch–Pagan): stat = {s['breusch_pagan_stat']:.2f}, p = {s['breusch_pagan_pval']:.2g}",
+    ]
+    out_txt.write_text("\n".join(lines), encoding="utf-8")
+
+
+def run_bland_altman_analysis(df, FIGS_DIR, a_col="Migration Time (h)", b_col="Migration Time InOut (h)", id_col="Data ID"):
+    """
+    Main function to run Bland-Altmane analysis comaring
+    two different measurement methods for the migration onset timing
+    
+    df: pd.DataFrame
+        Dataframe containing the experimental data with migration timing information
+    FIGS_DIR: str
+        Directory where the figures will be saved
+    a_col: str
+        Column name for the first measurement method (default: "Migration Time (h)")
+    b_col: str
+        Column name for the second measurement method (default: "Migration Time InOut (h)")
+    id_col: str
+        Column name for the unique identifier of each data point (default: "Data ID")
+    """
+
+    # Set up dataset
+    df_f = df[(df['Gene']=='H2B') & (df['Experimental Condition']=='3D lumenoid EMT')]
+    df_f = df_f[
+        (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
+        (df_f['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration']==True)& \
+        (df_f['Perturbation']=='No perturbation')& \
+        (df_f['Absence Of Excessive Cell Death']==True)& \
+        (df_f['Image Size Z']==30)& \
+        (df_f['Fixation Status']=='Live Cells')
+    ]
+    df_f['Migration Time InOut (h)'].replace('',np.nan, inplace=True)
+    df_f = df_f.dropna(subset=['Migration Time InOut (h)'])
+
+    # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
+    time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
+    df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
+    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
+
+    # Filtering out the movie with additional colony or cells in the FOV and merging with feature manifest for plots
+
+    dir_io = Path('/allen/aics/emt/basement_membrane_segmentation/Resubmission/localization')
+    df_io = []
+    df_io.append(io.load_inside_outside_classification(load_from_aws = True))
+    for fn in dir_io.glob('*.csv'):
+        df_io.append(pd.read_csv(fn, index_col=None))
+    df_io = pd.concat(df_io, ignore_index=True)
+    # df_io.rename(columns={'Move ID':'Data ID'})
+
+    df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
+    df_info = df_summary[[
+        'Condition order for plots',
+        'Movie ID',
+        'Data ID',
+        'Gene',
+        'Migration Time (h)',
+        'Migration Time InOut (h)', 
+        'Timepoint (h)',
+        'Bottom Z plane', 
+        'Dataset',
+        'Plate Barcode',
+        'Scene Index',
+        'Position Index',
+        'Well Label'
+    ]]
+
+    dfio_merge=pd.merge(df_io, df_info, on='Movie ID')
+    dfio_scatter=dfio_merge.groupby([
+        'Condition order for plots',
+        'Data ID',
+    ]).agg({
+        'Migration Time (h)':'first', 
+        'Migration Time InOut (h)':'first'
+    })
+
+    A = dfio_scatter[a_col].to_numpy(float)
+    B =dfio_scatter[b_col].to_numpy(float)
+
+    # Stats
+    s = _bland_altman_stats(A, B)
+
+    # Bias-corrected points (shift B by −bias so corrected B aligns with A)
+    B_corr = B - s["bias"]
+   
+    # Figures (SVG)
+    FIGS_DIR = Path(FIGS_DIR)
+    _plot_scatter(A, B, FIGS_DIR / "uncorrected_scatter.svg", "Uncorrected scatter", "Method B: in/out (h)")
+    _plot_scatter(A, B_corr, FIGS_DIR / "bias_corrected_scatter.svg", f"Bias-corrected scatter (shift {(-s['bias']):+.2f} h)", "Method B (bias-corrected) (h)")
+    _plot_bland_altman(s["mean_vals"], s["diff_vals"], FIGS_DIR / "bland_altman.svg", s["bias"], s["loa_lower"], s["loa_upper"])
+
+    # Summary CSV + text report
+    pd.DataFrame({k: [v] for k, v in s.items() if not isinstance(v, np.ndarray)}).to_csv(Path() / "bland_altman_summary.csv", index=False, encoding="utf-8")
+    _write_report(s, FIGS_DIR / "report.txt")
 
 def plot_bmp_inhibitor_migration(df_BMP, figs_dir: str, out_type):
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
@@ -1242,7 +1534,149 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     # Create heatmap of the final intensities for each time for each Label
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
-run_all_analyses()
+
+def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
+    """
+    Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds.
+    
+    Parameters:
+    -----------
+    FIGS_DIR : str
+        Directory where the figures will be saved
+    OUT_TYPE : str
+        File type for the output figures (e.g. 'svg', 'png')
+    """
+
+    # Load and set up data
+    manifests = {
+        1: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-1/ImmunoPanel_entire_manifest.csv',
+        3: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-3/ImmunoPanel_entire_manifest.csv',
+        4: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-4/ImmunoPanel_entire_manifest.csv'
+    }
+    df_data = []
+    for rnd, fn in manifests.items():
+        print(Path(fn).parent)
+        csv = pd.read_csv(fn)
+        csv['Round'] =  rnd
+        print(csv.columns)
+        df_data.append(csv)
+    df_data = pd.concat(
+        df_data,
+        axis=0,
+        ignore_index=True
+    )
+    df_data['Channel 3'].fillna('Control', inplace=True)
+    df_data['Channel 4'].fillna('Control', inplace=True)
+    df_data.fillna(0, inplace=True)
+
+    conditions ={
+        'B':'2D PLF',
+        'C':'2D PLF',
+        'D':'2D MG',
+        'E':'2D MG',
+        'F':'3D Lum',
+        'G':'3D Lum'
+    }
+
+    df_summary = []
+    for barcode, df_barcode in df_data.groupby('Barcode'):
+        for scene, df_scene in df_barcode.groupby('scene'):
+            z_bot = df_scene.iloc[0]['z_bottom']
+            mask = [z>=z_bot and z<z_bot+10 for z in df_scene['z'].values]
+            df_mask = df_scene.iloc[mask]
+
+            condition = df_scene.iloc[0]['Well'][0]
+            
+            volume = df_mask['area_pixels'].sum()
+            if volume == 0:
+                continue
+            for ch in [3,4]:
+                int_total = df_mask[f'channel_{ch}_total_intensity'].sum()
+                if int_total == 0:
+                    continue
+
+                row = {
+                    'Barcode': barcode,
+                    'Scene': scene,
+                    'Gene': df_scene.iloc[0][f'Channel {ch}'],
+                    'Condition': conditions[condition],
+                    'Time (h)': df_scene.iloc[0]['Timepoint (h)'],
+                    'Round': df_scene.iloc[0]['Round'],
+                    'Volume': df_mask['area'].sum(),
+                    'Mean Intensity': int(int_total/volume)
+                }
+                df_summary.append(pd.DataFrame(row, index=[0]))
+    df_summary = pd.concat(df_summary, ignore_index=True)
+
+    # Set up colors, conditon order and figure size for plotting
+    colors = {
+        1:'lightcoral',
+        3:'turquoise',
+        4:'mediumseagreen'
+    }
+    cond_order = ['2D PLF', '2D MG', '3D Lum']
+
+    # Create individual plots of mean immunolabel intensity for different genes for each round and condition
+    for gene, df_gene in df_summary.groupby('Gene'):    
+        # min_start = {rnd:min([df[df['Condition'] == '2D PLF']['Mean Intensity'].mean() for df in df_rnd[df_rnd['Time (h)']==0]]) for rnd, df_rnd in df_gene.groupby('Round')}
+        
+        plt.figure(figsize=(15,5))
+        min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF'].groupby('Round')}
+        fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
+
+        n_rnds = len(df_gene['Round'].unique())
+        w = 2.5/(n_rnds-1) if n_rnds>1 else 3
+        offsets = {rnd:(i-1)/n_rnds for i, rnd in enumerate(df_gene['Round'].unique())}
+        ticks = [int(t) for t in df_gene['Time (h)'].unique()]
+        
+        c = 0
+        legend_handles = []
+        for cond in cond_order:
+            df_cond = df_gene[df_gene['Condition'] == cond]
+            
+            plt.figure()
+            max_fold = 0
+            for rnd, df_rnd in df_cond.groupby('Round'):
+                ax = plt.subplot(1,1,1)
+                ax.set_title(gene + ' - ' + cond)
+                ax.set_xlabel('Hour')
+                ax.set_ylabel('Mean Intensity (Fold)')
+                
+                max_fold = max([max_fold, fold])
+                ax.set_ylim([0,max_fold+0.5])
+                
+                ints = [i/df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for i in df_rnd['Mean Intensity'].values]
+                # ints = [i/min_start[rnd] for i in df_rnd['Mean Intensity'].values]
+                ts = [t + offsets[rnd]*w for t in df_rnd['Time (h)'].values]
+                plt.scatter(ts, ints, s=7, c=colors[rnd], marker='D', label=f'Round {rnd}')
+                
+                data = {}
+                for t, i in zip(ts,ints):
+                    if t not in data.keys():
+                        data[t] = []
+                    data[t].append(i)
+                
+                vplot = ax.violinplot(
+                    dataset = list(data.values()),
+                    positions = list(data.keys()),
+                    widths = w,
+                    showextrema=False
+                )
+
+                for patch in vplot['bodies']:
+                    patch.set_color(colors[rnd])
+
+                if len(legend_handles) < n_rnds:
+                    legend_handles.append(vplot)
+            ax.set_xticks(ticks)
+            ax.set_xticklabels(ticks)            
+            c+=1
+
+            ax.legend()
+            plt.savefig(f"{FIGS_DIR}/{gene} - {cond}.svg")
+
+
+# Run all analyses if this script is run
+if __name__ == '__main__':
+    run_all_analyses()
 
