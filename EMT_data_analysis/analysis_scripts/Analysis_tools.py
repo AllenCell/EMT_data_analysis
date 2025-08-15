@@ -615,8 +615,6 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
     df_summary['sort_value'] = df_summary['Drug Concentration'].apply(lambda c: float(c.split()[0]) if 'HBSS' not in c else -1)
     df_summary['Collagenease concentration (ug/mL)'] = [float(c.split(' ')[0])  if 'HBSS' not in c else 0 for c in df_summary['Drug Concentration'].values]
     df_summary = df_summary.sort_values(by=['sort_value'], axis=0)
-    # df_summary['gene_m'] = pd.Categorical(df_summary['Gene'], df_summary['Gene'].unique())
-    # df_summary = df_summary.sort_values(['gene_m','Drug Concentration'])
 
 
     print('\n\n\n.......Statistical comparison for migration time with collagenase treatment:')
@@ -652,13 +650,6 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         X = df_gene['Collagenease concentration (ug/mL)']
         Y = df_gene['Migration Onset Time (Footprint Area Based)']
 
-        fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-        fig_scatter = sns.scatterplot(df_gene, x='Collagenease concentration (ug/mL)', y='Migration Onset Time (Footprint Area Based)', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
-        plt.title(f'{g}\nCollagenase vs Migration Onset Time (Footprint Area Based)')
-        plt.xlabel('Collagenease Concentration (ug/mL)', fontsize=16)
-        plt.ylabel('Migration Onset Time (Footprint Area Based)', fontsize=16)
-        plt.rcParams.update({'font.size':16})
-
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -679,12 +670,6 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         print(f"R-squared: {r_squared:.3g}")
         print(f"Slope (Coefficient for concentration): {slope_coeff:.3g}")
         print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
-
-        xs = [df_gene['Collagenease concentration (ug/mL)'].min(), df_gene['Collagenease concentration (ug/mL)'].max()]
-        ys = [x*slope_coeff+const_coef for x in xs]
-        plt.plot(xs,ys,'--k')
-        plt.savefig(fr'{figs_dir}/Collagenase/Scatter_plot_for_{g}_between_collagenase_conctertion_and_migration_time.{out_type}', dpi=600)
-
 
         alpha = 0.05
         if slope_p_value < alpha:
@@ -751,13 +736,6 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         X = df_gene['MMPi concentration (uM)']
         Y = df_gene['Migration Onset Time (Manual First Cell Detection)']
 
-        fig_scatter, ax = plt.subplots(1,1, figsize=(10,10))
-        fig_scatter = sns.scatterplot(df_gene, x='MMPi concentration (uM)', y='Time of migration first cell', hue='Drug Concentration', palette=color_map, s=100, alpha=0.7, linewidth=2, legend=False)
-        plt.title(f'{gene}\nMMPi vs Migration Onset Time (Footprint Area Based)')
-        plt.xlabel('MMPi Concentration (ug/mL)', fontsize=16)
-        plt.ylabel('Time of Migration First Cell (h)', fontsize=16)
-        plt.rcParams.update({'font.size':16})
-
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -774,13 +752,7 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         r_squared = results.rsquared
         slope_coeff = results.params['MMPi concentration (uM)']
         const_coeff = results.params['const']
-
-        xs = [df_gene['MMPi concentration (uM)'].min(), df_gene['MMPi concentration (uM)'].max()]
-        ys = [x*slope_coeff+const_coeff for x in xs]
-        plt.plot(xs,ys,'--k')
-        plt.savefig(fr'{figs_dir}/MMPi/Scatter_plot_for_{gene}_between_MMPi_conctertion_and_average_migration_time.{out_type}', dpi=600)
-
-
+        
         print(f"R-squared: {r_squared:.4f}")
         print(f"Slope (Coefficient for concentration): {slope_coeff:.4f}")
         print(f"P-value for the slope: {slope_p_value:.4g}") # Using 'g' for scientific notation if needed
