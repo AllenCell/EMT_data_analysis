@@ -13,7 +13,7 @@ import statsmodels.api as sm
 
 # Set font to be Arial and configure text in figures to be editable in Adobe Illustrator
 plt.rcParams["pdf.fonttype"] = 42
-plt.rcParams["font.family"] = "Arial"
+# plt.rcParams["font.family"] = "Arial"
 
 warnings.filterwarnings("ignore")
 
@@ -58,9 +58,6 @@ def load_and_prep_datasets(
 
     # Create the directory for figures if it does not exist
     Path(figs_dir).mkdir(parents=True, exist_ok=True)
-
-    # drop EOMES|TBR2 data
-    df['Gene']=df['Gene'].apply(lambda x: 'HIST1H2BJ' if 'HIST1H2BJ' in x else x)
 
     return df
 
@@ -307,10 +304,19 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
     df_z = df_f[(df_f['Normalized Z plane']>=0) & (df_f['Normalized Z plane']<10)]
 
     # Grouping by condition and gene and each movie to get mean itnensity over time for each movie
-    df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
+    df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Data ID','Timepoint (h)']).agg(
+        {
+            'Total intensity per Z':'sum',
+            'Area of all cells mask per Z (pixels)':'sum',
+            'Time of max EOMES expression (h)':'first',
+            'Time of max TBXT expression (h)':'first',
+            'Time of inflection of E-cad expression (h)':'first',
+            'Time of half-maximal SOX2 expression (h)':'first'
+        }
+    ).reset_index()
     df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
     df_int['Mean Intensity'] = df_int['Mean Intensity'].replace(0,np.nan)
-    df_int = df_int[df_int['Gene']!='HIST1HIST1H2BJJ']
+    df_int = df_int[df_int['Gene']!='HIST1H2BJ']
 
     # Plotting mean intensity
     for g, d_g in df_int.groupby('Gene'):
@@ -330,6 +336,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
 
     Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     # Time of max EOMES expression (h) examples
+    # import pdb; pdb.set_trace()
     plot_tools.plot_examples(
         df_int = df_int,
         id_plf = const.EOMES_PLF,
@@ -910,21 +917,19 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
 
     df_info = df_summary[[
         'Condition order for plots',
-        'Movie ID',
         'Data ID',
         'Gene',
         'Migration Onset Time (Footprint Area Based)',
         'Migration Onset Time (Inside/Outside Basement Membrane Based)', 
         'Timepoint (h)',
         'Bottom Z plane', 
-        'Dataset',
         'Plate Barcode',
         'Scene Index',
         'Position Index',
         'Well Label'
     ]]
 
-    dfio_merge=pd.merge(df_io, df_info, on='Movie ID')
+    dfio_merge=pd.merge(df_io, df_info, on='Data ID')
 
     n_movies_io=dfio_merge['Data ID'].nunique()
 
