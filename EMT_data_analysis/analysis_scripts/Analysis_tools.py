@@ -25,7 +25,7 @@ def run_all_analyses():
     Run all analysis functions
     """
 
-    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 15/Complete EMT Feature Data.csv'
+    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/Complete EMT Feature Data.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
     OUT_TYPE = 'svg'
 
@@ -42,9 +42,9 @@ def run_all_analyses():
     plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
-    plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
+    # plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
     run_bland_altman_analysis(df, FIGS_DIR)

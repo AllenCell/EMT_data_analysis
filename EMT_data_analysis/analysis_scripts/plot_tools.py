@@ -181,14 +181,14 @@ def Intensity_over_z(df, figs_dir, color_map='coolwarm', out_type='pdf'):
     saves heatmap to the directory'''
         
     
-    for id, df_id in df.groupby('Movie ID'):
+    for id, df_id in df.groupby('Data ID'):
         df_id=df_id[df_id['Normalized Z plane']>=0]
         c=df_id['Experimental Condition'].unique()[0]
         
         fig,ax=plt.subplots(1,1,figsize=(8,5))
         df_a=df_id[df_id['Area of all cells mask per Z (pixels)']>50000] # providing pixel threshold to filter out noise
 
-        color_min=df_id['Mean intensity per Z'].min()
+        color_min=df_id[df_id['Mean intensity per Z']>0]['Mean intensity per Z'].min()
         color_max=df_id['Mean intensity per Z'].max()
 
         df_h=df_a.pivot_table(index="Normalized Z plane", columns="Timepoint (h)", values='Mean intensity per Z')
@@ -201,5 +201,5 @@ def Intensity_over_z(df, figs_dir, color_map='coolwarm', out_type='pdf'):
 
         ax= sns.heatmap(df_nanmerge, cmap=color_map, vmin=color_min, vmax=color_max )
         ax.invert_yaxis()
-        plt.title(f'Condition={c}, Movie ID={id}')
+        plt.title(f'Condition={c}, Data ID={id}')
         fig.savefig(rf'{figs_dir}/Histogram_zo1_{c}_{id}.{out_type}', dpi=600)
