@@ -24,7 +24,7 @@ def run_all_analyses():
     Run all analysis functions
     """
 
-    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 13/Complete EMT Data with IF.csv'
+    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 15/Complete EMT Feature Data.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
     OUT_TYPE = 'svg'
 
@@ -59,15 +59,8 @@ def load_and_prep_datasets(
     # Create the directory for figures if it does not exist
     Path(figs_dir).mkdir(parents=True, exist_ok=True)
 
-    # check if/why we have nan values here
-    df['Experimental Condition'].replace('',np.nan, inplace=True)
-    df.dropna(subset=['Experimental Condition'], inplace=True)
-
-    df['Experimental Condition'] = df['Experimental Condition'].apply(lambda x: x.replace('2D MG EMT 1:60 MG','2D colony EMT').replace('2D PLF EMT 1:60 MG', '2D PLF colony EMT').replace('3D MG EMT 1:60 MG', '3D lumenoid EMT'))
-
     # drop EOMES|TBR2 data
-    df = df[(df['Gene']!='EOMES|TBR2')&(df['Gene']!='TBR2|EOMES')]
-    df['Gene']=df['Gene'].apply(lambda x: 'H2B' if 'H2B' in x else x)
+    df['Gene']=df['Gene'].apply(lambda x: 'HIST1H2BJ' if 'HIST1H2BJ' in x else x)
 
     return df
 
@@ -131,7 +124,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
         id_plf = const.EXAMPLE_PLF,
         id_2d = const.EXAMPLE_2D,
         id_3d = const.EXAMPLE_3D,
-        gene = "H2B",
+        gene = "HIST1H2BJ",
         metric = 'Migration Onset Time (Footprint Area Based)',
         variable = 'Area at the glass(square micrometer)',
         figs_dir = figs_dir+'/Individual_Examples',
@@ -140,12 +133,12 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
 
 def plot_area_at_glass_h2b(df, figs_dir, out_type):
     """
-    Generates plots for area at the glass for H2B gene and corresponding migration time estimated from the inflection of area at glass over time
+    Generates plots for area at the glass for HIST1H2BJ gene and corresponding migration time estimated from the inflection of area at glass over time
     
     Parameters:
     -------
     df : pd.DataFrame
-        Dataframe containing the area at the glass for each movie and timepoint for H2B data
+        Dataframe containing the area at the glass for each movie and timepoint for HIST1H2BJ data
     figs_dir : str
         Directory where the figures will be saved
     out_type : str
@@ -154,7 +147,7 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
 
     # Set up dataset
     df_f = create_df_f(df)
-    df_a_h2b = df_f[df_f['Gene']=='H2B'].groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
+    df_a_h2b = df_f[df_f['Gene']=='HIST1H2BJ'].groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
     df_a = df_f.groupby(['Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Area at the glass(square micrometer)':'first', 'Migration Onset Time (Footprint Area Based)':'first'}).reset_index()
     n_a = df_a['Data ID'].nunique()
     fig, ax = plt.subplots(1,1)
@@ -167,7 +160,7 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     plt.rcParams.update({'font.size':14})
     plt.tight_layout()
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
-    plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_H2B_n{n_a}.{out_type}', transparent=True, dpi=600)
+    plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_HIST1H2BJ_n{n_a}.{out_type}', transparent=True, dpi=600)
 
     plot_tools.plot_examples(
         df_int = df_a,
@@ -209,7 +202,7 @@ def plot_migration_timing_all_data(df, figs_dir, out_type):
 
 def plot_migration_timing_h2b(df, figs_dir, out_type):
     """
-    Generate box plots for migration timing for H2B gene and corresponding migration time estimated from the inflection of area at glass over time
+    Generate box plots for migration timing for HIST1H2BJ gene and corresponding migration time estimated from the inflection of area at glass over time
     
     Parameters:
     -----------
@@ -225,15 +218,15 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     df_f = df_f.sort_values('Timepoint (h)')
     # Summarizing the dataframe/manifest to have one line/metric per movie
     df_summary = df_f.groupby('Data ID').agg('first').reset_index()
-    n_m = df_summary[df_summary['Gene']=='H2B']['Data ID'].nunique()
+    n_m = df_summary[df_summary['Gene']=='HIST1H2BJ']['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     
-    fig_mig = px.box(df_summary[df_summary['Gene']=='H2B'], x='Condition order for plots', y='Migration Onset Time (Footprint Area Based)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
+    fig_mig = px.box(df_summary[df_summary['Gene']=='HIST1H2BJ'], x='Condition order for plots', y='Migration Onset Time (Footprint Area Based)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
     fig_mig.update_layout(yaxis_title='Migration Onset Time (Footprint Area Based)',font=dict(size=18))
-    fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_H2B_n{n_m}.{out_type}', scale=2 )
+    fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_HIST1H2BJ_n{n_m}.{out_type}', scale=2 )
 
-    print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for H2B...')
+    print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for HIST1H2BJ...')
     x_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['2D PLF' in val for val in df_summary['Experimental Condition'].values]].dropna()
     y_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['2D colony EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
     z_mig = df_summary['Migration Onset Time (Footprint Area Based)'][['3D lumenoid EMT' in val for val in df_summary['Experimental Condition'].values]].dropna()
@@ -265,7 +258,7 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     df_f = df_f.sort_values('Timepoint (h)')
     # Summarizing the dataframe/manifest to have one line/metric per movie
     df_summary = df_f.groupby('Data ID').agg('first').reset_index()
-    n_m = df_summary[df_summary['Gene']=='H2B']['Data ID'].nunique()
+    n_m = df_summary[df_summary['Gene']=='HIST1H2BJ']['Data ID'].nunique()
     df_summary = df_summary.sort_values(['Gene','Condition order for plots'])
     df_summary = df_summary.sort_values(by='Condition order for plots')
     
@@ -317,7 +310,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
     df_int = df_z.groupby(['Experimental Condition','Condition order for plots','Gene','Data ID','Timepoint (h)']).agg({'Total intensity per Z':'sum','Area of all cells mask per Z (pixels)':'sum'}).reset_index()
     df_int['Mean Intensity']=df_int['Total intensity per Z']/df_int['Area of all cells mask per Z (pixels)']
     df_int['Mean Intensity'] = df_int['Mean Intensity'].replace(0,np.nan)
-    df_int = df_int[df_int['Gene']!='HIST1H2BJ']
+    df_int = df_int[df_int['Gene']!='HIST1HIST1H2BJJ']
 
     # Plotting mean intensity
     for g, d_g in df_int.groupby('Gene'):
@@ -882,7 +875,7 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     """
     # print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
-    df_f = df[(df['Gene']=='H2B') & (df['Experimental Condition']=='3D lumenoid EMT')]
+    df_f = df[(df['Gene']=='HIST1H2BJ') & (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
         (df_f['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration']==True)& \
