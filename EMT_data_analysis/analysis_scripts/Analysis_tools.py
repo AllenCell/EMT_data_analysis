@@ -28,7 +28,7 @@ def run_all_analyses():
     DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/Complete EMT Feature Data.csv'
     IO_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/EMT Inside-Outside Nucleus Data.csv'
     FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
-    OUT_TYPE = 'svg'
+    OUT_TYPE = 'png'
 
     df = load_and_prep_datasets(
         data_path=DATA_PATH,
@@ -49,7 +49,7 @@ def run_all_analyses():
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
     run_bland_altman_analysis(df, IO_PATH, FIGS_DIR)
-    immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE)
+    immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
     
 
 
@@ -134,24 +134,24 @@ def create_df_IF(df):
     df_f = df[(df['Immunostaining Set']=='First Set Of Immunostaining')|(df['Immunostaining Set']=='Second Set Of Immunostaining')|(df['Immunostaining Set']=='Third Set Of Immunostaining')]
     df_f = df_f[(df_f['Normalized Z plane']>=0)&(df_f['Normalized Z plane']<10)]
 
-    df_f['Content of Channel 2'].fillna('Control', inplace=True)
-    df_f['Content of Channel 3'].fillna('Control', inplace=True)
+    df_f['Content Of Channel 2'].fillna('No Antibody Control', inplace=True)
+    df_f['Content Of Channel 3'].fillna('No Antibody Control', inplace=True)
 
     df_summary = []
-    for data_id, df_id in df_f.groupby('Barcode'):
+    for data_id, df_id in df_f.groupby('Data ID'):
         volume = df_id['Area of all cells mask per Z (pixels)'].sum()
         if volume == 0:
             continue
         for ch in [2,3]:
-            int_total = df_id[f'Total instensity per Z (Channel {ch})'].sum()
+            int_total = df_id[f'Total intensity per Z (Channel {ch})'].sum()
             if int_total == 0:
                 continue
 
             row = {
                 'Data ID': data_id,
-                'Gene': df_id.iloc[0][f'Content of Channel {ch}'],
+                'Gene': df_id.iloc[0][f'Content Of Channel {ch}'],
                 'Condition': df_id.iloc[0]['Experimental Condition'],
-                'Time (h)': df_id.iloc[0]['Timepoint (h)'],
+                'Time (h)': float(df_id.iloc[0]['Timepoint'])*0.5,
                 'Round': df_id.iloc[0]['Immunostaining Set'],
                 'Volume': volume,
                 'Mean Intensity': int(int_total/volume)
@@ -1477,7 +1477,7 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
 
-def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
+def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
     """
     Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds.
     
@@ -1490,78 +1490,22 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
     """
 
     # Load and set up data
-    manifests = {
-        1: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-1/ImmunoPanel_entire_manifest.csv',
-        3: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-3/ImmunoPanel_entire_manifest.csv',
-        4: '/allen/aics/assay-dev/computational/data/EMT_deliverable_processing/ImmunoPanel_202412/BF_colony_mask/Manifests/Round-4/ImmunoPanel_entire_manifest.csv'
-    }
-    df_data = []
-    for rnd, fn in manifests.items():
-        csv = pd.read_csv(fn)
-        csv['Round'] =  rnd
-        df_data.append(csv)
-    df_data = pd.concat(
-        df_data,
-        axis=0,
-        ignore_index=True
-    )
-    df_data['Channel 3'].fillna('Control', inplace=True)
-    df_data['Channel 4'].fillna('Control', inplace=True)
-    df_data.fillna(0, inplace=True)
-
-    conditions ={
-        'B':'2D PLF',
-        'C':'2D PLF',
-        'D':'2D MG',
-        'E':'2D MG',
-        'F':'3D Lum',
-        'G':'3D Lum'
-    }
-
-    df_summary = []
-    for barcode, df_barcode in df_data.groupby('Barcode'):
-        for scene, df_scene in df_barcode.groupby('scene'):
-            z_bot = df_scene.iloc[0]['z_bottom']
-            mask = [z>=z_bot and z<z_bot+10 for z in df_scene['z'].values]
-            df_mask = df_scene.iloc[mask]
-
-            condition = df_scene.iloc[0]['Well'][0]
-            
-            volume = df_mask['area_pixels'].sum()
-            if volume == 0:
-                continue
-            for ch in [3,4]:
-                int_total = df_mask[f'channel_{ch}_total_intensity'].sum()
-                if int_total == 0:
-                    continue
-
-                row = {
-                    'Barcode': barcode,
-                    'Scene': scene,
-                    'Gene': df_scene.iloc[0][f'Channel {ch}'],
-                    'Condition': conditions[condition],
-                    'Time (h)': df_scene.iloc[0]['Timepoint (h)'],
-                    'Round': df_scene.iloc[0]['Round'],
-                    'Volume': df_mask['area'].sum(),
-                    'Mean Intensity': int(int_total/volume)
-                }
-                df_summary.append(pd.DataFrame(row, index=[0]))
-    df_summary = pd.concat(df_summary, ignore_index=True)
+    df_summary = create_df_IF(df)
+    Path(f"{FIGS_DIR}/Immunostaining").mkdir(exist_ok=True, parents=True)
 
     # Set up colors, conditon order and figure size for plotting
     colors = {
-        1:'lightcoral',
-        3:'turquoise',
-        4:'mediumseagreen'
+        'First Set Of Immunostaining':'lightcoral',
+        'Second Set Of Immunostaining':'turquoise',
+        'Third Set Of Immunostaining':'mediumseagreen'
     }
-    cond_order = ['2D PLF', '2D MG', '3D Lum']
 
     # Create individual plots of mean immunolabel intensity for different genes for each round and condition
     for gene, df_gene in df_summary.groupby('Gene'):    
         # min_start = {rnd:min([df[df['Condition'] == '2D PLF']['Mean Intensity'].mean() for df in df_rnd[df_rnd['Time (h)']==0]]) for rnd, df_rnd in df_gene.groupby('Round')}
         
         plt.figure(figsize=(15,5))
-        min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF'].groupby('Round')}
+        min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF colony EMT'].groupby('Round')}
         fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
 
         n_rnds = len(df_gene['Round'].unique())
@@ -1569,10 +1513,8 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
         offsets = {rnd:(i-1)/n_rnds for i, rnd in enumerate(df_gene['Round'].unique())}
         ticks = [int(t) for t in df_gene['Time (h)'].unique()]
         
-        c = 0
         legend_handles = []
-        for cond in cond_order:
-            df_cond = df_gene[df_gene['Condition'] == cond]
+        for cond, df_cond in df_gene.groupby('Condition'):
             
             plt.figure()
             max_fold = 0
@@ -1586,9 +1528,8 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
                 ax.set_ylim([0,max_fold+0.5])
                 
                 ints = [i/df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for i in df_rnd['Mean Intensity'].values]
-                # ints = [i/min_start[rnd] for i in df_rnd['Mean Intensity'].values]
                 ts = [t + offsets[rnd]*w for t in df_rnd['Time (h)'].values]
-                plt.scatter(ts, ints, s=7, c=colors[rnd], marker='D', label=f'Round {rnd}')
+                plt.scatter(ts, ints, s=7, c=colors[rnd], marker='D', label=f'{rnd}')
                 
                 data = {}
                 for t, i in zip(ts,ints):
@@ -1610,10 +1551,8 @@ def immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE):
                     legend_handles.append(vplot)
             ax.set_xticks(ticks)
             ax.set_xticklabels(ticks)            
-            c+=1
-
             ax.legend()
-            plt.savefig(f"{FIGS_DIR}/{gene} - {cond}.svg")
+            plt.savefig(f"{FIGS_DIR}/Immunostaining/{gene} - {cond}.{OUT_TYPE}")
 
 
 # Run all analyses if this script is run
