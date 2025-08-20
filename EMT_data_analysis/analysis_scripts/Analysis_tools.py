@@ -158,6 +158,7 @@ def create_df_IF(df):
             }
             df_summary.append(pd.DataFrame(row, index=[0]))
     df_summary = pd.concat(df_summary, ignore_index=True)
+    return df_summary
 
 
 
