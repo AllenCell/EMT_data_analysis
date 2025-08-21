@@ -131,6 +131,11 @@ def create_df_f(df, time_interval=30):
 
 
 def create_df_IF(df):
+    """
+    Helper function to prune dataset to necessary columns and reorganize so that each label is in its own row.
+    And get quantitative versions of the immunolabeling data for heatmap generation.
+    """
+
     df_f = df[(df['Immunostaining Set']=='First Set Of Immunostaining')|(df['Immunostaining Set']=='Second Set Of Immunostaining')|(df['Immunostaining Set']=='Third Set Of Immunostaining')]
     df_f = df_f[(df_f['Normalized Z plane']>=0)&(df_f['Normalized Z plane']<10)]
 
