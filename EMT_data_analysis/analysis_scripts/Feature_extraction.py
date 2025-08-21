@@ -61,7 +61,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
             seg_img = seg_img.compute()
 
             if align:
-                matrix_string = df_movie["Camera Alignment Matrix"].values[0]
+                matrix_string = df_movie["Dual Camera Alignment Matrix Value"].values[0]
                 matrix = alignment.parse_rotation_matrix_from_string(matrix_string)
                 transform = alignment.get_alignment_matrix(matrix)
                 transform = transform.inverse
