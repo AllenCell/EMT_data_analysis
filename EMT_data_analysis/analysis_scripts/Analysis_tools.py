@@ -48,8 +48,8 @@ def run_all_analyses():
     plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)
-    run_bland_altman_analysis(df, FIGS_DIR)
-    immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE)
+    run_bland_altman_analysis(df, IO_PATH, FIGS_DIR)
+    immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
     
 
 
@@ -161,7 +161,7 @@ def create_df_IF(df):
 
             row = {
                 'Data ID': data_id,
-                'Gene': df_id.iloc[0][f'Content Of Channel {ch}'],
+                'Label': df_id.iloc[0][f'Content Of Channel {ch}'],
                 'Condition': df_id.iloc[0]['Experimental Condition'],
                 'Time (h)': float(df_id.iloc[0]['Timepoint'])*0.5,
                 'Round': df_id.iloc[0]['Immunostaining Set'],
@@ -1517,7 +1517,7 @@ def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
     }
 
     # Create individual plots of mean immunolabel intensity for different genes for each round and condition
-    for gene, df_gene in df_summary.groupby('Gene'):    
+    for gene, df_gene in df_summary.groupby('Label'):    
         plt.figure(figsize=(15,5))
         min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF colony EMT'].groupby('Round')}
         fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
