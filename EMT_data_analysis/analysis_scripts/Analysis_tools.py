@@ -46,7 +46,7 @@ def run_all_analyses():
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
-    plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)  # need data added for this
+    plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)
     run_bland_altman_analysis(df, FIGS_DIR)
     immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE)
     
