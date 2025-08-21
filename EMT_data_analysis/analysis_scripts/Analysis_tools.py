@@ -1301,7 +1301,7 @@ def run_bland_altman_analysis(
     _plot_bland_altman(s["mean_vals"], s["diff_vals"], FIGS_DIR / "bland_altman.svg", s["bias"], s["loa_lower"], s["loa_upper"])
 
     # Summary CSV + text report
-    pd.DataFrame({k: [v] for k, v in s.items() if not isinstance(v, np.ndarray)}).to_csv(Path() / "bland_altman_summary.csv", index=False, encoding="utf-8")
+    pd.DataFrame({k: [v] for k, v in s.items() if not isinstance(v, np.ndarray)}).to_csv(FIGS_DIR / "bland_altman_summary.csv", index=False, encoding="utf-8")
     _write_report(s, FIGS_DIR / "report.txt")
 
 def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
