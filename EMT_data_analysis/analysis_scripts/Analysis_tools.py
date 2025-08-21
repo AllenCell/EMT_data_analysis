@@ -47,9 +47,9 @@ def run_all_analyses():
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
-    # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
-    run_bland_altman_analysis(df, IO_PATH, FIGS_DIR)
-    immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
+    plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)
+    run_bland_altman_analysis(df, FIGS_DIR)
+    immunlabeling_mean_intensity_analysis(FIGS_DIR, OUT_TYPE)
     
 
 
@@ -1328,6 +1328,41 @@ def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
         col_type = col.replace(' ','-')
         fig_mig.write_image(fr'{figs_dir}/BMP/BMP_inhibitor_migration_timing_for_{col_type}.{out_type}', scale=2 )
 
+def _create_df_IF(df):
+    """
+    Helper function to prune dataset to necessary columns and reorganize so that each label is in its own row.
+    And get quantitative versions of the immunolabeling data for heatmap generation.
+    """
+
+    df_f = df[(df['Immunostaining Set']=='First Set Of Immunostaining')|(df['Immunostaining Set']=='Second Set Of Immunostaining')|(df['Immunostaining Set']=='Third Set Of Immunostaining')]
+    df_f = df_f[(df_f['Normalized Z plane']>=0)&(df_f['Normalized Z plane']<10)]
+
+    df_f['Content Of Channel 2'].fillna('No Antibody Control', inplace=True)
+    df_f['Content Of Channel 3'].fillna('No Antibody Control', inplace=True)
+
+    df_summary = []
+    for data_id, df_id in df_f.groupby('Data ID'):
+        volume = df_id['Area of all cells mask per Z (pixels)'].sum()
+        if volume == 0:
+            continue
+        for ch in [2,3]:
+            int_total = df_id[f'Total intensity per Z (Channel {ch})'].sum()
+            if int_total == 0:
+                continue
+
+            row = {
+                'Data ID': data_id,
+                'Label': df_id.iloc[0][f'Content Of Channel {ch}'],
+                'Condition': df_id.iloc[0]['Experimental Condition'],
+                'Time (h)': float(df_id.iloc[0]['Timepoint'])*0.5,
+                'Round': df_id.iloc[0]['Immunostaining Set'],
+                'Volume': volume,
+                'Mean Intensity': int(int_total/volume)
+            }
+            df_summary.append(pd.DataFrame(row, index=[0]))
+    df_summary = pd.concat(df_summary, ignore_index=True)
+    return df_summary
+
 
 def _normalize_to_T0_mean_by_round_and_condiiton(group: pd.DataFrame) -> pd.DataFrame:
     """
@@ -1364,6 +1399,17 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Sort dataframe to custom order of labels and conditions
     """
 
+    rename_map = {
+        'E-cadherin (Rabbit host)': 'E-cadherin',
+        'N-cadherin (Mouse host)': 'N-cadherin',
+        'Brachyury (Rabbit host)': 'TBXT',
+        'Eomes (Mouse host)': 'Eomes',
+        'Snail (Mouse host)': 'Snail',
+        'Twist1 (Rabbit host)': 'Twist1',
+        'Vimentin (Chicken host)': 'Vimentin',
+        'H3Kme2 (Rabbit host)': 'H3Kme2',
+    }
+
     custom_label_order = [
         "E-cadherin",
         "N-cadherin",
@@ -1376,18 +1422,18 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     custom_condition_order = [
-        "2D PLF Colony EMT",
-        "2D Colony EMT",
-        "3D Luminoid EMT"
+        "2D PLF colony EMT",
+        "2D colony EMT",
+        "3D lumenoid EMT"
     ]
+
+    # Use map to rename labels
+    df["Label"] = df["Label"].map(rename_map).fillna(df["Label"])
 
     # Sort label order
     df["Label"] = pd.Categorical(df["Label"], categories=custom_label_order, ordered=True)
-    
+
     # Rename conditions and sort condition order
-    df.loc[df["Condition"] == "2D PLF", "Condition"] = "2D PLF Colony EMT"
-    df.loc[df["Condition"] == "2D MG", "Condition"] = "2D Colony EMT"
-    df.loc[df["Condition"] == "3D Lum", "Condition"] = "3D Luminoid EMT"
     df["Condition"] = pd.Categorical(df["Condition"], categories=custom_condition_order, ordered=True)
     
     return df.sort_values("Label")
@@ -1404,6 +1450,7 @@ def _create_heatmap(data: pd.DataFrame, title: str, figs_dir: str, output_type: 
 
     plt.clf()
     plt.figure(figsize=FIGSIZE)
+    data['Time (h)'] = data['Time (h)'].astype(int)
     pivot_table = data.pivot_table(index=["Label", "Condition"], columns="Time (h)", values="Mean Intensity")
     cmap = plt.cm.viridis
     cmap.set_bad('lightgrey')
@@ -1434,10 +1481,10 @@ def _create_heatmap(data: pd.DataFrame, title: str, figs_dir: str, output_type: 
 
     # Save figure in vector formats
     plt.tight_layout()
-    plt.savefig(f"{figs_dir}/{title}", format=output_type)
+    plt.savefig(f"{figs_dir}/{title}.{output_type}")
 
 
-def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
+def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: str) -> None:
     """
     Function to plot immunolabeling heatmap from a dataset
 
@@ -1450,23 +1497,23 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
 
     Parameters:
     ----------
-
+    df: pd.DataFrame
+        DataFrame containing the immunolabeling data
     figs_dir : str
         Directory where the figures will be saved
     output_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    # Load dataset 
-    # TODO: replace with loading and filtering broader dataset
-    df = pd.read_csv("immuno_panel.csv")
+    # Set up dataset 
+    df = _create_df_IF(df)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
     df_normalized = df.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
-    
+
     # Average all the normalized intensities across the time-point
     df_averaged = df_normalized.groupby(["Label", "Condition"], sort=False).apply(_average_across_time).reset_index(drop=True)
-    
+
     # Normalize each to 0-100% for easier comparison across Labels
     df_final = df_averaged.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_100).reset_index(drop=True)
 
