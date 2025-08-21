@@ -144,31 +144,6 @@ def localize_for_timepoint(
         transform = alignment.get_alignment_matrix(alignment_matrix)
         transform = transform.inverse
 
-    # convert 2d surface mesh into an enclosed 3d mesh
-    # vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
-    # vert_up = np.zeros_like(vert)
-    # np.copyto(vert_up, vert)
-    # vert_up[:, 2] = max(vert[:,2])
-    # face_up = np.zeros_like(faces)
-    # np.copyto(face_up, faces)
-
-    # mesh = trimesh.Trimesh(vertices=vert, faces=faces)
-    # roof = trimesh.Trimesh(vertices=vert_up, faces=face_up)
-    # mesh_conc = trimesh.util.concatenate(mesh, roof)
-
-    # vert, faces = mesh_conc.vertices, mesh_conc.faces
-
-    # vw, fw = pcu.make_mesh_watertight(vert, faces, 10_000)
-
-    # mesh = trimesh.Trimesh(vertices=vw, faces=fw)
-
-    # mfix = mf.MeshFix(pv.wrap(mesh))
-    # mfix.repair()
-    # mesh = pv.wrap(mfix.mesh)
-    # mesh = trimesh.Trimesh(
-    #     vertices=mesh.points, 
-    #     faces=mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
-    # )
     mf_holes = mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
     outline_verts = mf_holes.points
     top = np.percentile(outline_verts[:,2], 99)
@@ -230,7 +205,6 @@ def localize_for_timepoint(
         try:
             contains = rayCaster.contains_points([centroid])
         except:
-            # nucData['Inside'].append(None)
             continue
         
         # check if centroid is inside the mesh
@@ -273,8 +247,7 @@ def run_nuclei_localization(
     for movie_id in tqdm(pd.unique(df_cond['Movie ID']), desc="Movies"):
         df_id = df_manifest[df_manifest['Movie ID'] == movie_id]
 
-        # # make sure the movie has the required segmentations
-        # if df_id['Gene'].values[0] in ['HIST1H2BJ', 'EOMES|TBR2']:
+        # make sure the movie has the required segmentations
         nuclei_localization(
             df=df_id,
             movie_id=movie_id,
