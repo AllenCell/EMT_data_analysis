@@ -64,6 +64,10 @@ def load_and_prep_datasets(
 
 
 def load_io_data(df, io_path):
+    """
+    Helper function for importing the inside-outside nucleus localization data and appending it to the
+    main manifest, filtering for only movies for which the analysis was conducted.
+    """
     df_f = df[(df['Gene']=='HIST1H2BJ') & (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
@@ -109,6 +113,9 @@ def load_io_data(df, io_path):
 
 
 def create_df_f(df, time_interval=30):
+    """
+    Helper function to filter main data manifest to only include movies which were used for the main EMT migration analysis.
+    """
     df_f = df[(df['Experimental Condition']=='2D PLF colony EMT') | (df['Experimental Condition']=='2D colony EMT') | (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
@@ -180,7 +187,6 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
-    # print('Generating plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time (Fig.5 C, D , E)')
 
     # Set up dataset
     df_f = create_df_f(df)
@@ -188,7 +194,6 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     n_a = df_a['Data ID'].nunique()
     fig,ax = plt.subplots(1,1)
     
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -232,7 +237,6 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     n_a = df_a['Data ID'].nunique()
     fig, ax = plt.subplots(1,1)
 
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a_h2b, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -406,7 +410,6 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         n = d_g['Data ID'].nunique()
         
         fig,ax = plt.subplots(1,1)
-        # for scn, df_scn in d_g.groupby('Data ID'):
         sns.lineplot(d_g, x='Timepoint (h)', y='Mean Intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
         plt.ylabel('Mean intensity (a.u.)', fontsize=14)
         plt.xlabel('Time (h)', fontsize=14)
@@ -419,7 +422,6 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
 
     Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     # Time of max EOMES expression (h) examples
-    # import pdb; pdb.set_trace()
     plot_tools.plot_examples(
         df_int = df_int,
         id_plf = const.EOMES_PLF,
@@ -442,7 +444,6 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         out_type=out_type)
 
     # Time of inflection of E-cad expression (h) examples-
-    # import pdb; pdb.set_trace()
     plot_tools.plot_examples(
         df_int = df_int,
         id_plf = const.CDH_PLF,
@@ -928,7 +929,6 @@ def plot_zo1_heatmaps(df, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    # print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
     # Filtering the dataset to only ZO1 data
     (Path(figs_dir) / 'ZO1').mkdir(parents=True, exist_ok=True)
 
@@ -963,7 +963,6 @@ def plot_inside_outside_migration_timing(df, io_path, figs_dir, out_type):
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
-    # print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
     dfio_merge = load_io_data(df, io_path)
 
@@ -1519,8 +1518,6 @@ def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
 
     # Create individual plots of mean immunolabel intensity for different genes for each round and condition
     for gene, df_gene in df_summary.groupby('Gene'):    
-        # min_start = {rnd:min([df[df['Condition'] == '2D PLF']['Mean Intensity'].mean() for df in df_rnd[df_rnd['Time (h)']==0]]) for rnd, df_rnd in df_gene.groupby('Round')}
-        
         plt.figure(figsize=(15,5))
         min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF colony EMT'].groupby('Round')}
         fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
