@@ -1328,41 +1328,6 @@ def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
         col_type = col.replace(' ','-')
         fig_mig.write_image(fr'{figs_dir}/BMP/BMP_inhibitor_migration_timing_for_{col_type}.{out_type}', scale=2 )
 
-def _create_df_IF(df):
-    """
-    Helper function to prune dataset to necessary columns and reorganize so that each label is in its own row.
-    And get quantitative versions of the immunolabeling data for heatmap generation.
-    """
-
-    df_f = df[(df['Immunostaining Set']=='First Set Of Immunostaining')|(df['Immunostaining Set']=='Second Set Of Immunostaining')|(df['Immunostaining Set']=='Third Set Of Immunostaining')]
-    df_f = df_f[(df_f['Normalized Z plane']>=0)&(df_f['Normalized Z plane']<10)]
-
-    df_f['Content Of Channel 2'].fillna('No Antibody Control', inplace=True)
-    df_f['Content Of Channel 3'].fillna('No Antibody Control', inplace=True)
-
-    df_summary = []
-    for data_id, df_id in df_f.groupby('Data ID'):
-        volume = df_id['Area of all cells mask per Z (pixels)'].sum()
-        if volume == 0:
-            continue
-        for ch in [2,3]:
-            int_total = df_id[f'Total intensity per Z (Channel {ch})'].sum()
-            if int_total == 0:
-                continue
-
-            row = {
-                'Data ID': data_id,
-                'Label': df_id.iloc[0][f'Content Of Channel {ch}'],
-                'Condition': df_id.iloc[0]['Experimental Condition'],
-                'Time (h)': float(df_id.iloc[0]['Timepoint'])*0.5,
-                'Round': df_id.iloc[0]['Immunostaining Set'],
-                'Volume': volume,
-                'Mean Intensity': int(int_total/volume)
-            }
-            df_summary.append(pd.DataFrame(row, index=[0]))
-    df_summary = pd.concat(df_summary, ignore_index=True)
-    return df_summary
-
 
 def _normalize_to_T0_mean_by_round_and_condiiton(group: pd.DataFrame) -> pd.DataFrame:
     """
@@ -1506,7 +1471,7 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
     """
 
     # Set up dataset 
-    df = _create_df_IF(df)
+    df = create_df_IF(df)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
     df_normalized = df.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
