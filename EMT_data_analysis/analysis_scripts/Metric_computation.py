@@ -237,8 +237,7 @@ def compute_metrics(output_folder):
        'Area of all cells mask per Z (square micrometer)',
        'Mean intensity per Z', 'Total intensity per Z', 'Bottom Z plane',
        'Normalized Z plane', 'Area at the glass (pixels)',
-       'Area at the glass(square micrometer)', 
-       'Time of max expression (h)']
+       'Area at the glass(square micrometer)']
     features = [feat for feat in features if feat in df_features_addons.columns]
     df_features_final=df_features_addons[features]
     print(len(df_features_final.index))
