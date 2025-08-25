@@ -27,8 +27,9 @@ def run_all_analyses():
 
     DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/Complete EMT Feature Data.csv'
     IO_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/EMT Inside-Outside Nucleus Data.csv'
-    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
     OUT_TYPE = 'png'
+
+    FIGS_DIR = io.setup_base_directory_name("figures")
 
     df = load_and_prep_datasets(
         data_path=DATA_PATH,
