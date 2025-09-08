@@ -24,16 +24,10 @@ def run_all_analyses():
     """
     Run all analysis functions
     """
-
-    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/Complete EMT Feature Data.csv'
-    IO_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 19/EMT Inside-Outside Nucleus Data.csv'
     OUT_TYPE = 'png'
-
     FIGS_DIR = io.setup_base_directory_name("figures")
 
-    df = load_and_prep_datasets(
-        data_path=DATA_PATH,
-        figs_dir=FIGS_DIR)
+    df = io.load_image_analysis_extracted_features()
     
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
@@ -44,12 +38,12 @@ def run_all_analyses():
     plot_gene_expression_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_collagenase_analysis(df, FIGS_DIR, OUT_TYPE)
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
-    plot_inside_outside_migration_timing(df, IO_PATH, FIGS_DIR, OUT_TYPE)
+    plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
     plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)
-    run_bland_altman_analysis(df, IO_PATH, FIGS_DIR)
+    run_bland_altman_analysis(df, FIGS_DIR)
     immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
     
 
@@ -64,7 +58,7 @@ def load_and_prep_datasets(
     return df
 
 
-def load_io_data(df, io_path):
+def load_io_data(df):
     """
     Helper function for importing the inside-outside nucleus localization data and appending it to the
     main manifest, filtering for only movies for which the analysis was conducted.
@@ -104,7 +98,7 @@ def load_io_data(df, io_path):
         'Well Label'
     ]]
 
-    df_io = pd.read_csv(io_path, index_col=None)
+    df_io = io.load_inside_outside_classification()
 
     dfio_merged=pd.merge(df_io, df_info, on='Data ID', suffixes=['','_remove'])
     remove = [col for col in dfio_merged.columns if 'remove' in col]
@@ -204,7 +198,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.{out_type}', transparent=True, dpi=600)
 
-    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
+    (figs_dir / 'Individual_Examples').mkdir(exist_ok=True, parents=True)
     plot_tools.plot_examples(
         df_int = df_f,
         id_plf = const.EXAMPLE_PLF,
@@ -213,7 +207,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
         gene = "HIST1H2BJ",
         metric = 'Migration Onset Time (Footprint Area Based)',
         variable = 'Area at the glass(square micrometer)',
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         out_type=out_type)
 
 
@@ -429,7 +423,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.EOMES_2D,
         id_3d = const.EOMES_3D,
         gene = "EOMES",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of max EOMES expression (h)',
         out_type=out_type)
 
@@ -440,7 +434,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.TBXT_2D,
         id_3d = const.TBXT_3D,
         gene = "TBXT",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of max TBXT expression (h)',
         out_type=out_type)
 
@@ -451,7 +445,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.CDH_2D,
         id_3d = const.CDH_3D,
         gene = "CDH1",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of inflection of E-cad expression (h)',
         out_type=out_type)
 
@@ -462,7 +456,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.SOX_2D,
         id_3d = const.SOX_3D,
         gene = "SOX2",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric = 'Time of half-maximal SOX2 expression (h)',
         out_type=out_type)
 
@@ -948,10 +942,10 @@ def plot_zo1_heatmaps(df, figs_dir, out_type):
     df_zo_examples = df_zo[df_zo['Data ID'].isin(const.EXAMPLE_ZO1_IDS)]
 
     # Generating and saving the heatmaps
-    plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir+'/ZO1', out_type=out_type)
+    plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir/'ZO1', out_type=out_type)
 
 
-def plot_inside_outside_migration_timing(df, io_path, figs_dir, out_type):
+def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     """
     Analyzes the inside-outside classification of nuclei in the basement membrane and plots the fraction of nuclei outside the lumen over time.
     Also plots the migration time estimated from inside and outside classification of nuclei w.r.t basement membrane vs migration time estimated from area at the glass.
@@ -965,7 +959,7 @@ def plot_inside_outside_migration_timing(df, io_path, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    dfio_merge = load_io_data(df, io_path)
+    dfio_merge = load_io_data(df)
 
     n_movies_io=dfio_merge['Data ID'].nunique()
 
@@ -1254,7 +1248,6 @@ def _write_report(s: Dict[str, Any], out_txt: Path) -> None:
 
 def run_bland_altman_analysis(
         df, 
-        io_path,
         FIGS_DIR, 
         a_col="Migration Onset Time (Footprint Area Based)", 
         b_col="Migration Onset Time (Inside/Outside Basement Membrane Based)", 
@@ -1277,7 +1270,7 @@ def run_bland_altman_analysis(
     """
 
     # Set up dataset
-    dfio_merge = load_io_data(df, io_path)
+    dfio_merge = load_io_data(df)
     dfio_scatter=dfio_merge.groupby([
         'Condition order for plots',
         'Data ID',
