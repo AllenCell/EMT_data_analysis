@@ -47,17 +47,6 @@ def run_all_analyses():
     immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
     
 
-
-def load_and_prep_datasets(
-        data_path, figs_dir):
-    # figs_dir = io.setup_base_directory_name("figures")
-    # df = io.load_image_analysis_extracted_features(load_from_aws=True)
-    df = pd.read_csv(data_path, index_col=None)
-    Path(figs_dir).mkdir(parents=True, exist_ok=True)
-
-    return df
-
-
 def load_io_data(df):
     """
     Helper function for importing the inside-outside nucleus localization data and appending it to the
