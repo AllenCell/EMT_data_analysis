@@ -4,12 +4,15 @@ import pandas as pd
 import seaborn as sns
 import plotly.express as px
 import matplotlib.pyplot as plt
+from typing import Tuple, Dict, Any
 from EMT_data_analysis.tools import io, const
 from EMT_data_analysis.analysis_scripts import plot_tools
 from pathlib import Path
 import scikit_posthocs as sp
 from scipy.stats import pearsonr, spearmanr
 import statsmodels.api as sm
+from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.stattools import jarque_bera
 
 # Set font to be Arial and configure text in figures to be editable in Adobe Illustrator
 plt.rcParams["pdf.fonttype"] = 42
@@ -17,20 +20,14 @@ plt.rcParams["pdf.fonttype"] = 42
 
 warnings.filterwarnings("ignore")
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
 def run_all_analyses():
     """
     Run all analysis functions
     """
+    OUT_TYPE = 'png'
+    FIGS_DIR = io.setup_base_directory_name("figures")
 
-    DATA_PATH = '/allen/aics/emt/qc_and_scoring/Dataset making/August/August 15/Complete EMT Feature Data.csv'
-    FIGS_DIR = '/allen/aics/emt/data_analysis_plots/Colony_Metrics/repo_testing/'
-    OUT_TYPE = 'svg'
-
-    df = load_and_prep_datasets(
-        data_path=DATA_PATH,
-        figs_dir=FIGS_DIR)
+    df = io.load_image_analysis_extracted_features()
     
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
@@ -43,26 +40,66 @@ def run_all_analyses():
     analyze_crispr_knockdown_experiments(df, FIGS_DIR, OUT_TYPE)
     plot_inside_outside_migration_timing(df, FIGS_DIR, OUT_TYPE)
     plot_mmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
-    plot_bmp_inhibitor_migration(df, FIGS_DIR)
+    plot_bmp_inhibitor_migration(df, FIGS_DIR, OUT_TYPE)
     plot_zo1_heatmaps(df, FIGS_DIR, OUT_TYPE)
-    # plot_immunolabeling_heatmap(FIGS_DIR, OUT_TYPE)  # need data added for this
+    plot_immunolabeling_heatmap(df, FIGS_DIR, OUT_TYPE)
+    run_bland_altman_analysis(df, FIGS_DIR)
+    immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE)
+    
 
+def load_io_data(df):
+    """
+    Helper function for importing the inside-outside nucleus localization data and appending it to the
+    main manifest, filtering for only movies for which the analysis was conducted.
+    """
+    df_f = df[(df['Gene']=='HIST1H2BJ') & (df['Experimental Condition']=='3D lumenoid EMT')]
+    df_f = df_f[
+        (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
+        (df_f['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration']==True)& \
+        (df_f['Perturbation']=='No perturbation')& \
+        (df_f['Absence Of Excessive Cell Death']==True)& \
+        (df_f['Image Size Z']==30)& \
+        (df_f['Fixation Status']=='Live Cells')
+    ]
+    df_f['Migration Onset Time (Inside/Outside Basement Membrane Based)'].replace('',np.nan, inplace=True)
+    df_f = df_f.dropna(subset=['Migration Onset Time (Inside/Outside Basement Membrane Based)'])
 
-def load_and_prep_datasets(
-        data_path, figs_dir):
+    # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
+    time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
+    df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
 
-    # figs_dir = io.setup_base_directory_name("figures")
-    # df = io.load_image_analysis_extracted_features(load_from_aws=True)
+    # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
+    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
 
-    df = pd.read_csv(data_path, index_col=None)
+    df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
 
-    # Create the directory for figures if it does not exist
-    Path(figs_dir).mkdir(parents=True, exist_ok=True)
+    df_info = df_summary[[
+        'Condition order for plots',
+        'Data ID',
+        'Gene',
+        'Migration Onset Time (Footprint Area Based)',
+        'Migration Onset Time (Inside/Outside Basement Membrane Based)', 
+        'Timepoint (h)',
+        'Bottom Z plane', 
+        'Plate Barcode',
+        'Scene Index',
+        'Position Index',
+        'Well Label'
+    ]]
 
-    return df
+    df_io = io.load_inside_outside_classification()
+
+    dfio_merged=pd.merge(df_io, df_info, on='Data ID', suffixes=['','_remove'])
+    remove = [col for col in dfio_merged.columns if 'remove' in col]
+    dfio_merged.drop(columns=remove, inplace=True)
+
+    return dfio_merged
 
 
 def create_df_f(df, time_interval=30):
+    """
+    Helper function to filter main data manifest to only include movies which were used for the main EMT migration analysis.
+    """
     df_f = df[(df['Experimental Condition']=='2D PLF colony EMT') | (df['Experimental Condition']=='2D colony EMT') | (df['Experimental Condition']=='3D lumenoid EMT')]
     df_f = df_f[
         (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
@@ -84,6 +121,43 @@ def create_df_f(df, time_interval=30):
     return df_f
 
 
+def create_df_IF(df):
+    """
+    Helper function to prune dataset to necessary columns and reorganize so that each label is in its own row.
+    And get quantitative versions of the immunolabeling data for heatmap generation.
+    """
+
+    df_f = df[(df['Immunostaining Set']=='First Set Of Immunostaining')|(df['Immunostaining Set']=='Second Set Of Immunostaining')|(df['Immunostaining Set']=='Third Set Of Immunostaining')]
+    df_f = df_f[(df_f['Normalized Z plane']>=0)&(df_f['Normalized Z plane']<10)]
+
+    df_f['Content Of Channel 2'].fillna('No Antibody Control', inplace=True)
+    df_f['Content Of Channel 3'].fillna('No Antibody Control', inplace=True)
+
+    df_summary = []
+    for data_id, df_id in df_f.groupby('Data ID'):
+        volume = df_id['Area of all cells mask per Z (pixels)'].sum()
+        if volume == 0:
+            continue
+        for ch in [2,3]:
+            int_total = df_id[f'Total intensity per Z (Channel {ch})'].sum()
+            if int_total == 0:
+                continue
+
+            row = {
+                'Data ID': data_id,
+                'Label': df_id.iloc[0][f'Content Of Channel {ch}'],
+                'Condition': df_id.iloc[0]['Experimental Condition'],
+                'Time (h)': float(df_id.iloc[0]['Timepoint'])*0.5,
+                'Round': df_id.iloc[0]['Immunostaining Set'],
+                'Volume': volume,
+                'Mean Intensity': int(int_total/volume)
+            }
+            df_summary.append(pd.DataFrame(row, index=[0]))
+    df_summary = pd.concat(df_summary, ignore_index=True)
+    return df_summary
+
+
+
 def plot_area_at_glass_all_data(df, figs_dir, out_type):
     """
     Generates plots for area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time
@@ -97,7 +171,6 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
-    # print('Generating plots for Area at the glass for all three conditions and corresponding migration time estimated from the inflection of area at glass over time (Fig.5 C, D , E)')
 
     # Set up dataset
     df_f = create_df_f(df)
@@ -105,7 +178,6 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     n_a = df_a['Data ID'].nunique()
     fig,ax = plt.subplots(1,1)
     
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -115,7 +187,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_n{n_a}.{out_type}', transparent=True, dpi=600)
 
-    Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
+    (figs_dir / 'Individual_Examples').mkdir(exist_ok=True, parents=True)
     plot_tools.plot_examples(
         df_int = df_f,
         id_plf = const.EXAMPLE_PLF,
@@ -124,7 +196,7 @@ def plot_area_at_glass_all_data(df, figs_dir, out_type):
         gene = "HIST1H2BJ",
         metric = 'Migration Onset Time (Footprint Area Based)',
         variable = 'Area at the glass(square micrometer)',
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         out_type=out_type)
 
 
@@ -149,7 +221,6 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     n_a = df_a['Data ID'].nunique()
     fig, ax = plt.subplots(1,1)
 
-    # for scn, df_scn in df_a[df_a['Gene']=='TBXT'].groupby('Data ID'):
     sns.lineplot(df_a_h2b, x='Timepoint (h)', y='Area at the glass(square micrometer)', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.median)
     plt.ylabel('Colony area over bottom 2 Z ( $\ um^2$)', fontsize=14)
     plt.xlabel('Time (hr)', fontsize=14)
@@ -323,7 +394,6 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         n = d_g['Data ID'].nunique()
         
         fig,ax = plt.subplots(1,1)
-        # for scn, df_scn in d_g.groupby('Data ID'):
         sns.lineplot(d_g, x='Timepoint (h)', y='Mean Intensity', hue='Condition order for plots', palette=const.COLOR_MAP, errorbar=('pi', 50), estimator=np.nanmean)
         plt.ylabel('Mean intensity (a.u.)', fontsize=14)
         plt.xlabel('Time (h)', fontsize=14)
@@ -336,14 +406,13 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
 
     Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
     # Time of max EOMES expression (h) examples
-    # import pdb; pdb.set_trace()
     plot_tools.plot_examples(
         df_int = df_int,
         id_plf = const.EOMES_PLF,
         id_2d = const.EOMES_2D,
         id_3d = const.EOMES_3D,
         gene = "EOMES",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of max EOMES expression (h)',
         out_type=out_type)
 
@@ -354,19 +423,18 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.TBXT_2D,
         id_3d = const.TBXT_3D,
         gene = "TBXT",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of max TBXT expression (h)',
         out_type=out_type)
 
     # Time of inflection of E-cad expression (h) examples-
-    # import pdb; pdb.set_trace()
     plot_tools.plot_examples(
         df_int = df_int,
         id_plf = const.CDH_PLF,
         id_2d = const.CDH_2D,
         id_3d = const.CDH_3D,
         gene = "CDH1",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric='Time of inflection of E-cad expression (h)',
         out_type=out_type)
 
@@ -377,7 +445,7 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         id_2d = const.SOX_2D,
         id_3d = const.SOX_3D,
         gene = "SOX2",
-        figs_dir = figs_dir+'/Individual_Examples',
+        figs_dir = figs_dir / 'Individual_Examples',
         metric = 'Time of half-maximal SOX2 expression (h)',
         out_type=out_type)
 
@@ -845,7 +913,6 @@ def plot_zo1_heatmaps(df, figs_dir, out_type):
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    # print('Generating Heatmaps for ZO1 - Fig.7 and Fig. S6 ')
     # Filtering the dataset to only ZO1 data
     (Path(figs_dir) / 'ZO1').mkdir(parents=True, exist_ok=True)
 
@@ -864,7 +931,7 @@ def plot_zo1_heatmaps(df, figs_dir, out_type):
     df_zo_examples = df_zo[df_zo['Data ID'].isin(const.EXAMPLE_ZO1_IDS)]
 
     # Generating and saving the heatmaps
-    plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir+'/ZO1', out_type=out_type)
+    plot_tools.Intensity_over_z(df_zo_examples, figs_dir=figs_dir/'ZO1', out_type=out_type)
 
 
 def plot_inside_outside_migration_timing(df, figs_dir, out_type):
@@ -880,56 +947,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     out_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
-    # print('Generating plots for inside-outside classification and migration time (Fig.5 G, H ,I)')
 
-    df_f = df[(df['Gene']=='HIST1H2BJ') & (df['Experimental Condition']=='3D lumenoid EMT')]
-    df_f = df_f[
-        (df_f['Single Colony Or Lumenoid At Time of Migration']==True)& \
-        (df_f['Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration']==True)& \
-        (df_f['Perturbation']=='No perturbation')& \
-        (df_f['Absence Of Excessive Cell Death']==True)& \
-        (df_f['Image Size Z']==30)& \
-        (df_f['Fixation Status']=='Live Cells')
-    ]
-    df_f['Migration Onset Time (Inside/Outside Basement Membrane Based)'].replace('',np.nan, inplace=True)
-    df_f = df_f.dropna(subset=['Migration Onset Time (Inside/Outside Basement Membrane Based)'])
-
-    # Adding a Timepoint (h) column which converts frames into hours using  the Timelapse Interval column value
-    time_interval=30 #int(''.join(filter(lambda i: i.isdigit(),df_f['Timelapse Interval'].unique()[0] )))
-    df_f['Timepoint (h)']=df_f['Timepoint']*(time_interval/60)
-
-    # For plotting the conditions in the order- 2D PLF EMT, 2D EMT, 3D EMT
-    df_f['Condition order for plots']=df_f['Experimental Condition'].apply(lambda x: 'a.2D PLF EMT' if '2D PLF colony EMT' in x else 'b.2D EMT' if '2D colony EMT' in x else 'c.3D EMT')
-
-    df_summary = df_f.groupby(['Data ID']).agg('first').reset_index()
-
-    # Filtering out the movie with additional colony or cells in the FOV and merging with feature manifest for plots
-
-    dir_io = Path('/allen/aics/emt/basement_membrane_segmentation/Resubmission/localization')
-
-    df_io = []
-    df_io.append(io.load_inside_outside_classification(load_from_aws = True))
-    for fn in dir_io.glob('*.csv'):
-        df_io.append(pd.read_csv(fn, index_col=None))
-
-    df_io = pd.concat(df_io, ignore_index=True)
-    # df_io.rename(columns={'Move ID':'Data ID'})
-
-    df_info = df_summary[[
-        'Condition order for plots',
-        'Data ID',
-        'Gene',
-        'Migration Onset Time (Footprint Area Based)',
-        'Migration Onset Time (Inside/Outside Basement Membrane Based)', 
-        'Timepoint (h)',
-        'Bottom Z plane', 
-        'Plate Barcode',
-        'Scene Index',
-        'Position Index',
-        'Well Label'
-    ]]
-
-    dfio_merge=pd.merge(df_io, df_info, on='Data ID')
+    dfio_merge = load_io_data(df)
 
     n_movies_io=dfio_merge['Data ID'].nunique()
 
@@ -1016,7 +1035,257 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     print(f"Slope (Coefficient for migration timing): {slope_coeff:.3g}")
     print(f"P-value for the slope: {slope_p_value:.3g}")
 
+def _bland_altman_stats(A: np.ndarray, B: np.ndarray) -> Dict[str, Any]:
+    """
+    Compute Bland–Altman stats + diagnostics (using normal approx for CIs).
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    
+    Returns
+    -------
+    Dict: Dictionary containing Bland-Altman statistics
 
+    """
+    
+    mean_vals = (A + B) / 2.0
+    diff_vals = B - A
+    n = diff_vals.size
+
+    bias = float(diff_vals.mean())
+    sd = float(diff_vals.std(ddof=1))
+    z = 1.96  # 95% normal quantile
+
+    loa_lower = bias - z * sd
+    loa_upper = bias + z * sd
+
+    # 95% CI for bias (normal approx)
+    se_bias = sd / np.sqrt(n)
+    bias_ci_low = bias - z * se_bias
+    bias_ci_high = bias + z * se_bias
+
+    # 95% CIs for LoA (Bland & Altman 1999)
+    se_loa = sd * np.sqrt(1.0 / n + (z**2) / (2 * (n - 1)))
+    loa_lower_ci_low = loa_lower - z * se_loa
+    loa_lower_ci_high = loa_lower + z * se_loa
+    loa_upper_ci_low = loa_upper - z * se_loa
+    loa_upper_ci_high = loa_upper + z * se_loa
+
+    # Normality of differences (Jarque–Bera via statsmodels)
+    jb_stat, jb_p, _, _ = jarque_bera(diff_vals)
+
+    # Proportional bias: diff ~ mean (OLS with intercept)
+    X = sm.add_constant(mean_vals)
+    ols = sm.OLS(diff_vals, X).fit()
+    slope = float(ols.params[1])
+    slope_p = float(ols.pvalues[1])
+    r2_prop = float(ols.rsquared)
+
+    # Heteroscedasticity (Breusch–Pagan) on residuals vs mean
+    bp_stat, bp_p, _, _ = het_breuschpagan(ols.resid, X)
+
+    return {
+        "n": int(n),
+        "bias": bias,
+        "bias_ci_low": float(bias_ci_low),
+        "bias_ci_high": float(bias_ci_high),
+        "sd_diff": sd,
+        "loa_lower": float(loa_lower),
+        "loa_upper": float(loa_upper),
+        "loa_lower_ci_low": float(loa_lower_ci_low),
+        "loa_lower_ci_high": float(loa_lower_ci_high),
+        "loa_upper_ci_low": float(loa_upper_ci_low),
+        "loa_upper_ci_high": float(loa_upper_ci_high),
+        "normality_test": "Jarque–Bera",
+        "normality_stat": float(jb_stat),
+        "normality_p": float(jb_p),
+        "prop_bias_slope": slope,
+        "prop_bias_pval": slope_p,
+        "prop_bias_r2": r2_prop,
+        "breusch_pagan_stat": float(bp_stat),
+        "breusch_pagan_pval": float(bp_p),
+        "mean_vals": mean_vals,
+        "diff_vals": diff_vals,
+    }
+
+def _regress_fit(A: np.ndarray, B: np.ndarray) -> Tuple[float, float, float]:
+    """
+    Fit linear regression of B on A and return slope, intercept, and R².
+    
+    Parameters
+    ----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+
+    Returns
+    -------
+    Tuple: slope, intercept, and r2 measurements for a linear regression of the two measurement methods
+    """
+    X = sm.add_constant(A)
+    fit = sm.OLS(B, X).fit()
+    slope = float(fit.params[1])
+    intercept = float(fit.params[0])
+    r2 = float(fit.rsquared)
+    return slope, intercept, r2
+
+def _plot_scatter(A: np.ndarray, B: np.ndarray, out_svg: Path, title: str, y_label: str) -> Tuple[float, float, float]:
+    """
+    Scatter plot data with regression line and unity line.
+    
+    Parameters:
+    -----------
+    A : np.ndarray
+        Values from one measurement method 
+    B: np.ndarray
+        Values from a differeing measurement method
+    out_svg: Path
+        Path to where to save output figure svg
+    title: str
+        Title for scatter plot of two measurement methods
+    y_label: str
+        Label for the y axis
+
+    Returns:
+    --------
+    Tuple: slope, intercept and r2 from linear regression of two measurement methods
+           performed as part of the plotting
+    """
+    
+    slope, intercept, r2 = _regress_fit(A, B)
+    lo = float(min(A.min(), B.min()) - 0.5)
+    hi = float(max(A.max(), B.max()) + 0.5)
+    xline = np.array([lo, hi])
+    yline = intercept + slope * xline
+
+    plt.figure(figsize=(6, 6))
+    plt.scatter(A, B)
+    plt.plot([lo, hi], [lo, hi], linestyle="--")  # unity
+    plt.plot(xline, yline, linestyle="-")         # regression
+    plt.xlim(lo, hi); plt.ylim(lo, hi)
+    plt.xlabel("Method A: area-at-glass (h)")
+    plt.ylabel(y_label)
+    plt.title(f"{title} (slope={slope:.3f}, R²={r2:.3f})")
+    plt.tight_layout()
+    plt.savefig(out_svg, format="svg")
+    plt.close()
+    return slope, intercept, r2
+
+def _plot_bland_altman(mean_vals: np.ndarray, diff_vals: np.ndarray, out_svg: Path, bias: float, loa_lower: float, loa_upper: float) -> None:
+    """
+    Generate Bland-Altman plot of bias vs means
+
+    mean_vals: np.ndarray
+        Mean of two methods for measuring the migration onset time
+    diff_vals: np.ndarray
+        Difference between two methods for measuring the migration onset time
+    out_svg: Path
+        Path to where to save output figure svg
+    bias: float
+        Mean of bias, or difference, between two measurement methods
+    loa_lower: float
+        Lower limit of agreement
+    loa_upper: flaot
+        Upper limit of agreement
+    """
+    
+    plt.figure(figsize=(6, 6))
+    plt.scatter(mean_vals, diff_vals)
+    plt.axhline(bias, linestyle="--")
+    plt.axhline(loa_lower, linestyle="--")
+    plt.axhline(loa_upper, linestyle="--")
+    plt.xlabel("Mean of methods (h)")
+    plt.ylabel("Difference (B − A) (h)")
+    plt.title(f"Bland–Altman (bias={bias:+.2f} h, LoA [{loa_lower:+.2f}, {loa_upper:+.2f}] h)")
+    plt.tight_layout()
+    plt.savefig(out_svg, format="svg")
+    plt.close()
+
+def _write_report(s: Dict[str, Any], out_txt: Path) -> None:
+    """
+    Write a text report summarizing Bland–Altman stats.
+    
+    Parameters
+    ----------
+    s : Dict[str, Any]
+        Dictionary containing Bland-Altman statistics
+    out_txt : Path
+        Path to where to save output text report
+    """
+    
+    # UTF-8 avoids Windows cp1252 errors on characters like "−", "±", "²"
+    lines = [
+        f"n = {s['n']}",
+        f"Mean bias (B − A): {s['bias']:+.2f} h",
+        f"95% CI for bias: [{s['bias_ci_low']:+.2f}, {s['bias_ci_high']:+.2f}] h",
+        f"SD of differences: {s['sd_diff']:.2f} h",
+        f"95% LoA: [{s['loa_lower']:+.2f}, {s['loa_upper']:+.2f}] h",
+        f"95% CI for lower LoA: [{s['loa_lower_ci_low']:+.2f}, {s['loa_lower_ci_high']:+.2f}] h",
+        f"95% CI for upper LoA: [{s['loa_upper_ci_low']:+.2f}, {s['loa_upper_ci_high']:+.2f}] h",
+        f"Proportional bias (diff ~ mean): slope = {s['prop_bias_slope']:+.2f} h per hour, "
+        f"p = {s['prop_bias_pval']:.2g}, R² = {s['prop_bias_r2']:.2f}",
+        f"Normality ({s['normality_test']}): stat = {s['normality_stat']:.2f}, p = {s['normality_p']:.2g}",
+        f"Heteroscedasticity (Breusch–Pagan): stat = {s['breusch_pagan_stat']:.2f}, p = {s['breusch_pagan_pval']:.2g}",
+    ]
+    out_txt.write_text("\n".join(lines), encoding="utf-8")
+
+
+def run_bland_altman_analysis(
+        df, 
+        FIGS_DIR, 
+        a_col="Migration Onset Time (Footprint Area Based)", 
+        b_col="Migration Onset Time (Inside/Outside Basement Membrane Based)", 
+        id_col="Data ID"
+):
+    """
+    Main function to run Bland-Altmane analysis comaring
+    two different measurement methods for the migration onset timing
+    
+    df: pd.DataFrame
+        Dataframe containing the experimental data with migration timing information
+    FIGS_DIR: str
+        Directory where the figures will be saved
+    a_col: str
+        Column name for the first measurement method (default: "Migration Time (h)")
+    b_col: str
+        Column name for the second measurement method (default: "Migration Time InOut (h)")
+    id_col: str
+        Column name for the unique identifier of each data point (default: "Data ID")
+    """
+
+    # Set up dataset
+    dfio_merge = load_io_data(df)
+    dfio_scatter=dfio_merge.groupby([
+        'Condition order for plots',
+        'Data ID',
+    ]).agg({
+        'Migration Onset Time (Footprint Area Based)':'first', 
+        'Migration Onset Time (Inside/Outside Basement Membrane Based)':'first'
+    })
+
+    A = dfio_scatter[a_col].to_numpy(float)
+    B =dfio_scatter[b_col].to_numpy(float)
+
+    # Stats
+    s = _bland_altman_stats(A, B)
+
+    # Bias-corrected points (shift B by −bias so corrected B aligns with A)
+    B_corr = B - s["bias"]
+   
+    # Figures (SVG)
+    FIGS_DIR = Path(FIGS_DIR)
+    _plot_scatter(A, B, FIGS_DIR / "uncorrected_scatter.svg", "Uncorrected scatter", "Method B: in/out (h)")
+    _plot_scatter(A, B_corr, FIGS_DIR / "bias_corrected_scatter.svg", f"Bias-corrected scatter (shift {(-s['bias']):+.2f} h)", "Method B (bias-corrected) (h)")
+    _plot_bland_altman(s["mean_vals"], s["diff_vals"], FIGS_DIR / "bland_altman.svg", s["bias"], s["loa_lower"], s["loa_upper"])
+
+    # Summary CSV + text report
+    pd.DataFrame({k: [v] for k, v in s.items() if not isinstance(v, np.ndarray)}).to_csv(FIGS_DIR / "bland_altman_summary.csv", index=False, encoding="utf-8")
+    _write_report(s, FIGS_DIR / "report.txt")
 
 def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
     (Path(figs_dir) / 'BMP').mkdir(parents=True, exist_ok=True)
@@ -1082,6 +1351,17 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Sort dataframe to custom order of labels and conditions
     """
 
+    rename_map = {
+        'E-cadherin (Rabbit host)': 'E-cadherin',
+        'N-cadherin (Mouse host)': 'N-cadherin',
+        'Brachyury (Rabbit host)': 'TBXT',
+        'Eomes (Mouse host)': 'Eomes',
+        'Snail (Mouse host)': 'Snail',
+        'Twist1 (Rabbit host)': 'Twist1',
+        'Vimentin (Chicken host)': 'Vimentin',
+        'H3Kme2 (Rabbit host)': 'H3Kme2',
+    }
+
     custom_label_order = [
         "E-cadherin",
         "N-cadherin",
@@ -1094,18 +1374,18 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     custom_condition_order = [
-        "2D PLF Colony EMT",
-        "2D Colony EMT",
-        "3D Luminoid EMT"
+        "2D PLF colony EMT",
+        "2D colony EMT",
+        "3D lumenoid EMT"
     ]
+
+    # Use map to rename labels
+    df["Label"] = df["Label"].map(rename_map).fillna(df["Label"])
 
     # Sort label order
     df["Label"] = pd.Categorical(df["Label"], categories=custom_label_order, ordered=True)
-    
+
     # Rename conditions and sort condition order
-    df.loc[df["Condition"] == "2D PLF", "Condition"] = "2D PLF Colony EMT"
-    df.loc[df["Condition"] == "2D MG", "Condition"] = "2D Colony EMT"
-    df.loc[df["Condition"] == "3D Lum", "Condition"] = "3D Luminoid EMT"
     df["Condition"] = pd.Categorical(df["Condition"], categories=custom_condition_order, ordered=True)
     
     return df.sort_values("Label")
@@ -1122,6 +1402,7 @@ def _create_heatmap(data: pd.DataFrame, title: str, figs_dir: str, output_type: 
 
     plt.clf()
     plt.figure(figsize=FIGSIZE)
+    data['Time (h)'] = data['Time (h)'].astype(int)
     pivot_table = data.pivot_table(index=["Label", "Condition"], columns="Time (h)", values="Mean Intensity")
     cmap = plt.cm.viridis
     cmap.set_bad('lightgrey')
@@ -1152,10 +1433,10 @@ def _create_heatmap(data: pd.DataFrame, title: str, figs_dir: str, output_type: 
 
     # Save figure in vector formats
     plt.tight_layout()
-    plt.savefig(f"{figs_dir}/{title}", format=output_type)
+    plt.savefig(f"{figs_dir}/{title}.{output_type}")
 
 
-def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
+def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: str) -> None:
     """
     Function to plot immunolabeling heatmap from a dataset
 
@@ -1168,23 +1449,23 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
 
     Parameters:
     ----------
-
+    df: pd.DataFrame
+        DataFrame containing the immunolabeling data
     figs_dir : str
         Directory where the figures will be saved
     output_type : str
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    # Load dataset 
-    # TODO: replace with loading and filtering broader dataset
-    df = pd.read_csv("immuno_panel.csv")
+    # Set up dataset 
+    df = create_df_IF(df)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
     df_normalized = df.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
-    
+
     # Average all the normalized intensities across the time-point
     df_averaged = df_normalized.groupby(["Label", "Condition"], sort=False).apply(_average_across_time).reset_index(drop=True)
-    
+
     # Normalize each to 0-100% for easier comparison across Labels
     df_final = df_averaged.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_100).reset_index(drop=True)
 
@@ -1194,7 +1475,84 @@ def plot_immunolabeling_heatmap(figs_dir: str, output_type: str) -> None:
     # Create heatmap of the final intensities for each time for each Label
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
-# TODO  I assume this will live somewhere else eventually but placed this here for now
-# to test that the functions all run
-run_all_analyses()
+
+def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
+    """
+    Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds.
+    
+    Parameters:
+    -----------
+    FIGS_DIR : str
+        Directory where the figures will be saved
+    OUT_TYPE : str
+        File type for the output figures (e.g. 'svg', 'png')
+    """
+
+    # Load and set up data
+    df_summary = create_df_IF(df)
+    Path(f"{FIGS_DIR}/Immunostaining").mkdir(exist_ok=True, parents=True)
+
+    # Set up colors, conditon order and figure size for plotting
+    colors = {
+        'First Set Of Immunostaining':'lightcoral',
+        'Second Set Of Immunostaining':'turquoise',
+        'Third Set Of Immunostaining':'mediumseagreen'
+    }
+
+    # Create individual plots of mean immunolabel intensity for different genes for each round and condition
+    for gene, df_gene in df_summary.groupby('Label'):    
+        plt.figure(figsize=(15,5))
+        min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF colony EMT'].groupby('Round')}
+        fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
+
+        n_rnds = len(df_gene['Round'].unique())
+        w = 2.5/(n_rnds-1) if n_rnds>1 else 3
+        offsets = {rnd:(i-1)/n_rnds for i, rnd in enumerate(df_gene['Round'].unique())}
+        ticks = [int(t) for t in df_gene['Time (h)'].unique()]
+        
+        legend_handles = []
+        for cond, df_cond in df_gene.groupby('Condition'):
+            
+            plt.figure()
+            max_fold = 0
+            for rnd, df_rnd in df_cond.groupby('Round'):
+                ax = plt.subplot(1,1,1)
+                ax.set_title(gene + ' - ' + cond)
+                ax.set_xlabel('Hour')
+                ax.set_ylabel('Mean Intensity (Fold)')
+                
+                max_fold = max([max_fold, fold])
+                ax.set_ylim([0,max_fold+0.5])
+                
+                ints = [i/df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for i in df_rnd['Mean Intensity'].values]
+                ts = [t + offsets[rnd]*w for t in df_rnd['Time (h)'].values]
+                plt.scatter(ts, ints, s=7, c=colors[rnd], marker='D', label=f'{rnd}')
+                
+                data = {}
+                for t, i in zip(ts,ints):
+                    if t not in data.keys():
+                        data[t] = []
+                    data[t].append(i)
+                
+                vplot = ax.violinplot(
+                    dataset = list(data.values()),
+                    positions = list(data.keys()),
+                    widths = w,
+                    showextrema=False
+                )
+
+                for patch in vplot['bodies']:
+                    patch.set_color(colors[rnd])
+
+                if len(legend_handles) < n_rnds:
+                    legend_handles.append(vplot)
+            ax.set_xticks(ticks)
+            ax.set_xticklabels(ticks)            
+            ax.legend()
+            plt.savefig(f"{FIGS_DIR}/Immunostaining/{gene} - {cond}.{OUT_TYPE}")
+
+
+# Run all analyses if this script is run
+if __name__ == '__main__':
+    run_all_analyses()
 

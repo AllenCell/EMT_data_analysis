@@ -42,7 +42,7 @@ This will generate CSV for individual nuclei classified as inside the basement m
 
 ## 4 - Analysis Plots
 
-Run: `python Analysis_plots.py`
+Run: `python Analysis_tools.py`
 
 This will generate the plots in the manuscript and store them in `results/figures` folder. The manifests used as inputs in this workflow are automatically downloaded from [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/) by default. The user can opt to also use local version of these manifests if they produced locally by running the scripts `Feature_extraction.py`, `Metric_computation.py` and `Nuclei_localization.py`. To use local version of the manifests, please set `load_from_aws=False` everywhere in the script `Analysis_plots.py`.
 

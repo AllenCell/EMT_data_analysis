@@ -29,7 +29,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
     df = io.load_imaging_and_segmentation_dataset()
     print(f"Dataset loaded. Shape: {df.shape}.")
 
-    for movie_id, df_movie in tqdm(df.groupby('Movie ID')):
+    for movie_id, df_movie in tqdm(df.groupby('Data ID')):
     
         out_fn = Path(output_folder) / f"Features_bf_colony_mask_{movie_id}.csv"
         if out_fn.exists():
@@ -38,7 +38,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
         print(f"Movie: {movie_id}")
         
         print("Getting raw data...")
-        raw_path = df_movie["File Path"].values[0]
+        raw_path = df_movie["File URL"].values[0]
         raw_reader = BioImage(raw_path)
         print(raw_path)
         print(raw_reader.shape)
@@ -61,7 +61,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
             seg_img = seg_img.compute()
 
             if align:
-                matrix_string = df_movie["Camera Alignment Matrix"].values[0]
+                matrix_string = df_movie["Dual Camera Alignment Matrix Value"].values[0]
                 matrix = alignment.parse_rotation_matrix_from_string(matrix_string)
                 transform = alignment.get_alignment_matrix(matrix)
                 transform = transform.inverse
@@ -78,7 +78,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
                 row = {
                     "Z plane": z,
                     "Timepoint": frame,
-                    "Movie ID": movie_id,
+                    "Data ID": movie_id,
                     "Mean intensity per Z": mean_intensity,
                     "Total intensity per Z": total_intensity,
                     "Area of all cells mask per Z (pixels)": area
