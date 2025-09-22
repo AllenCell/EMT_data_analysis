@@ -12,7 +12,7 @@ def load_imaging_and_segmentation_dataset():
     return df
 
 def load_image_analysis_extracted_features(load_from_aws: bool = True):
-    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv"
+    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv?versionId=ehxRXxC0FpidcpgXU_z.51T.nkWB0Yuj"
     if not load_from_aws:
         # Or read from local if the user decides to run Metric_computation.py
         metric_comp_results_dir = get_results_directory_name() / "metric_computation"
@@ -21,7 +21,7 @@ def load_image_analysis_extracted_features(load_from_aws: bool = True):
     return df
 
 def load_inside_outside_classification(load_from_aws: bool = True):
-    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Migration_timing_through_mesh_extracted_features.csv"
+    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Migration_timing_through_mesh_extracted_features.csv?versionId=jXI9TfrFDcQZgS3LssIumKkPO47H_MzN"
     if not load_from_aws:
         # Or read from local if the user decides to run Nuclei_localization.py
         metric_comp_results_dir = get_results_directory_name() / "nuclei_localization"
