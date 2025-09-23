@@ -21,7 +21,12 @@ emt_timelapse_dataset
 
 ## data
 
-The `data` directory contains all the data used in the study “A human induced pluripotent stem (hiPS) cell model for the holistic study of epithelial to mesenchymal transitions (EMTs)”. Each movie has a unique movie ID. For convenience, each specific OME-Zarr file-type associated with a single movie has been assigned a specific filename extension (shown in the Table below). Hence, each file in the `data` directory has a naming convention: `movie-id_file-extension.ome.zarr`.
+The `data` directory contains all the data used in the study “A human induced pluripotent stem (hiPS) cell model for the holistic study of epithelial to mesenchymal transitions (EMTs)”. Each image (timelapse/fixed) has a unique `Data ID`. 
+The `Data ID` contains the unique barcode and the unique scene information associated with each image. **Further, for each fixed immunofluorescent image, the `Data ID` also includes the well label information.** 
+
+For convenience, each specific OME-Zarr file-type associated with a single image has been assigned a specific filename extension (shown in the Table below). 
+
+Hence, each file in the `data` directory has a naming convention: `data-id_file-extension.ome.zarr`.
 
 File type | Filename Extension
 ----------|-----------------
@@ -33,6 +38,8 @@ CytoGFP ground truth segmentation mask | `cytoGFP_ground_truth_segmentation.ome.
 CollagenIV ground truth segmentation mask | `collagenIV_ground_truth_segmentation.ome.zarr`
 CollagenIV segmentation probability | `collagenIV_segmentation_probability.ome.zarr`
 CollagenIV segmentaion mesh | `collagenIV_segmentation_mesh`
+
+**For fixed immunofluorescent images - filename extension also contains antibody information**
 
 For improved data accessibility we provide further information in the `manifests` section below.
 
