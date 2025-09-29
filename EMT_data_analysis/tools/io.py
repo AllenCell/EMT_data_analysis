@@ -6,13 +6,13 @@ def convert_to_windows_path(linux_path: Path):
     return PurePosixPath(linux_path)
 
 def load_imaging_and_segmentation_dataset():
-    df = pd.read_csv("https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/imaging_and_segmentation_data.csv")
+    df = pd.read_csv("https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/imaging_and_segmentation_data.csv?versionId=1dPCzwgkgZQpHp_juSoT6nwfFhSuZksk")
     n_movies = df['Movie ID'].nunique()
     print(f'Total number of movies in the dataset: {n_movies}')
     return df
 
 def load_image_analysis_extracted_features(load_from_aws: bool = True):
-    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv"
+    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv?versionId=vOL2v34LMubx081F_W_OuCbyqGYlOfWb"
     if not load_from_aws:
         # Or read from local if the user decides to run Metric_computation.py
         metric_comp_results_dir = get_results_directory_name() / "metric_computation"
@@ -21,7 +21,7 @@ def load_image_analysis_extracted_features(load_from_aws: bool = True):
     return df
 
 def load_inside_outside_classification(load_from_aws: bool = True):
-    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Migration_timing_through_mesh_extracted_features.csv"
+    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Migration_timing_through_mesh_extracted_features.csv?versionId=BCmT4ecY5.MvBTXIsfsAXs3.qrtAKnWq"
     if not load_from_aws:
         # Or read from local if the user decides to run Nuclei_localization.py
         metric_comp_results_dir = get_results_directory_name() / "nuclei_localization"
