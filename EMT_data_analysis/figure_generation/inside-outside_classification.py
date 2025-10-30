@@ -41,8 +41,7 @@ def main(
     # load data
     df_meta = io.load_imaging_and_segmentation_dataset()
     df_meta = df_meta[df_meta['Data ID'] == data_id]
-    # df = io.load_inside_outside_classification()
-    df = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/nuclei_localization/mesh_features-resegmentation.csv', index_col=None)
+    df = io.load_inside_outside_classification()
     df = df[df['Data ID'] == data_id]
 
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
