@@ -6,8 +6,8 @@ def convert_to_windows_path(linux_path: Path):
     return PurePosixPath(linux_path)
 
 def load_imaging_and_segmentation_dataset():
-    df = pd.read_csv("https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/imaging_and_segmentation_data.csv?versionId=7GyUpEvWnqNqVqDw14iYVOSwnwFTvoNG")
-    n_movies = df['Movie ID'].nunique()
+    df = pd.read_csv("https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/imaging_and_segmentation_data.csv")
+    n_movies = df['Data ID'].nunique()
     print(f'Total number of movies in the dataset: {n_movies}')
     return df
 

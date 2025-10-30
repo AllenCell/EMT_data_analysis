@@ -2,7 +2,7 @@ import numpy as np
 import pyvista as pv
 import trimesh
 from pathlib import Path
-from aicsimageio import AICSImage
+from bioio import BioImage
 from skimage.transform import resize
 from tqdm import tqdm
 from skimage.transform import resize
@@ -10,15 +10,13 @@ from skimage.filters import gaussian
 from skimage.measure import regionprops_table
 import pandas as pd
 import argparse
+import quilt3 as q3
 
-from aicsfiles import FileManagementSystem 
-fms=FileManagementSystem.from_env('prod')
-import os
+from EMT_data_analysis.tools import alignment, io
+
 
 def main(
-        mesh_fn: str,
-        fid: str,
-        data_csv: str,
+        data_id: str,
         output: str
     ):
     '''
@@ -29,8 +27,8 @@ def main(
         ----------
         mesh_fn: str
             Path to the .vtm file for the whole colony timelapse.
-        fid: str
-            FMS ID of the movie.
+        mid: str
+            Data ID of the movie.
         data_csv: str
             Path to the CSV file containing the inside-outside classification data.
         output: str
@@ -41,8 +39,24 @@ def main(
     output.mkdir(exist_ok=True, parents=True)
     
     # load data
+    df_meta = io.load_imaging_and_segmentation_dataset()
+    df_meta = df_meta[df_meta['Data ID'] == data_id]
+    # df = io.load_inside_outside_classification()
+    df = pd.read_csv('/allen/aics/users/filip.sluzewski/Public_Repos/emt-data-analysis/resubmission_scripts/nuclei_localization/mesh_features-resegmentation.csv', index_col=None)
+    df = df[df['Data ID'] == data_id]
+
+    tmp_dir = Path("./emt_tmp/nuclei_localization/")
+    tmp_dir.mkdir(exist_ok=True, parents=True)
+    mesh_path = df_meta['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
+    bucket = q3.Bucket("s3://allencell")
+    bucket.fetch(
+        mesh_path + '/', 
+        str(tmp_dir) + '/'
+    )
+
+    # load meshes
+    mesh_fn = tmp_dir / (mesh_path.split('/')[-1] + '.vtm')
     meshes = pv.read(mesh_fn)
-    df = pd.read_csv(data_csv).query(f'fms_id == {fid}')
     
     # base filename for output
     outname = Path(mesh_fn).stem.replace('_mesh', '_inside-outside_classification_figure')
@@ -76,13 +90,13 @@ def main(
         
         # get the data for the timepoint
         time = tp * 0.5
-        df_tp = df.query(f'time_hr == {time}')
+        df_tp = df[df['Time hr'] == time]
         
         # add mesh to the scene
         pl.add_mesh(meshes[f'{tp}'], color='#66b2b2', opacity=.5, show_edges=False, smooth_shading=True, specular=0.5, specular_power=15)
         
         # add nuclei centroids to the scene
-        for _, row in df_tp.query('Inside').iterrows():
+        for _, row in df_tp.iterrows():
             pl.add_mesh(
                 create_nucleus_mesh(row), 
                 color='yellow', 
@@ -132,22 +146,10 @@ def create_nucleus_mesh(df_nucleus: pd.DataFrame):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate figures for inside-outside classification of nuclei.')
     parser.add_argument(
-        '--mesh_fn', 
+        '--data_id', 
         type=str, 
-        required=True,
-        help='Path to the .vtm file for the whole colony timelapse.'
-    )
-    parser.add_argument(
-        '--fid', 
-        type=str, 
-        required=True,
+        default='3500005828_45',
         help='FMS ID of the movie.'
-    )
-    parser.add_argument(
-        '--data_csv', 
-        type=str, 
-        required=True,
-        help='Path to the CSV file containing the inside-outside classification data.'
     )
     parser.add_argument(
         '--output', 
@@ -158,4 +160,4 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    main(args.mesh_fn, args.fid, args.data_csv, args.output)
+    main(args.data_id, args.output)
