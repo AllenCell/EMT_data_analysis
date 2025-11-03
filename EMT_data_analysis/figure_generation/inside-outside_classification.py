@@ -26,12 +26,8 @@ def main(
         
         Parameters
         ----------
-        mesh_fn: str
-            Path to the .vtm file for the whole colony timelapse.
-        mid: str
+        data_id: str
             Data ID of the movie.
-        data_csv: str
-            Path to the CSV file containing the inside-outside classification data.
         output: str
             Path to the output directory where the figures will be saved.
     '''
