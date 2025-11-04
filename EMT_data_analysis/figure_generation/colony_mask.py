@@ -44,7 +44,7 @@ def main(
     # get segmentation and base filename
     df_manifest = pd.read_csv(dataset_manifest_path)
     seg_fn = df_manifest.loc[df_manifest['Movie Unique ID'] == movie_id, 'All Cells Mask File Download'].values[0]
-    seg = BioIo(seg_fn)
+    seg_file = BioImage(seg_fn)
     outname = Path(seg_fn).stem + '_figure'
     
     # lighting setup
