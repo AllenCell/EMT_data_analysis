@@ -43,3 +43,9 @@ EXAMPLE_ZO1_IDS = [
 
 # Nuclues Fraction Inside/Outside Example
 EXAMPLE_IO_ID = '3500005828_45'
+
+# All Cells Mask Examples
+EXAMPLE_ACM_IDS = [
+    '3500005824_36',
+    '3500006256_12'
+]
