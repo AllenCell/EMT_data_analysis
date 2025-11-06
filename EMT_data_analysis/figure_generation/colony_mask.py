@@ -194,7 +194,7 @@ def alpha_wrap(points: np.ndarray, alpha: float = 20.0, offset=0.001):
 
         Returns
         -------
-        vertices : (N,3) numpy array/allen/aics/assay-dev/users/Filip/forOthers/forAlexandra/EMT-membrane-mesh
+        vertices : (N,3) numpy array
             numpy array of mesh vertices
         faces : (M,3) numpy array
             numpy array of triangle face indices
