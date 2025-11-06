@@ -30,6 +30,12 @@ def main(
         out_dir: str
             Path to the output directory where the visualization will be saved.
     '''
+
+    if out_dir is None:
+        out_dir = io.setup_base_directory_name("figures/3D Renders")
+    else:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(exist_ok=True, parents=True)
     
     # get bottom z layer
     df_feature = io.load_image_analysis_extracted_features()
@@ -40,9 +46,6 @@ def main(
     seg_fn = df_manifest.loc[df_manifest['Data ID'] == data_id, 'All Cells Mask File Download'].values[0]
     seg_file = BioImage(seg_fn)
     outname = Path(seg_fn).stem + '_figure'
-
-    out_dir = Path(out_dir)
-    out_dir.mkdir(exist_ok=True, parents=True)
     
     # lighting setup
     light1 = pv.Light(
