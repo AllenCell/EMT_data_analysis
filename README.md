@@ -58,7 +58,7 @@ On Windows:
 Comment out any instance of `pv.start_xvfb()` in the code before running.
 
 ### All Cells Mask
-run
+Run
 ```bash
 python colony_mask.py --data_id [Optional] --output_directory [Optional]
 ```
