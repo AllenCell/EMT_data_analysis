@@ -11,7 +11,6 @@ from shutil import rmtree
 import pyvista as pv
 import trimesh
 import point_cloud_utils as pcu
-import pymeshfix as mf
 
 from bioio import BioImage
 
