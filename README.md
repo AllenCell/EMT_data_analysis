@@ -66,7 +66,7 @@ If no input arguments are provided, the code will default to the data shown in t
 Data ID values are only valid inputs if they have a none-empty value for `All Cells Mask File Download` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/)
 
 ### Inside-Outside Classification
-run
+Run
 ```bash
 python inside-outside_classification.py --data_id [Optional] --output_directory [Optional]
 ```
