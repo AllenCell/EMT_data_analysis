@@ -24,7 +24,7 @@ import argparse
 
 def nuclei_localization(
         df:pd.DataFrame, 
-        movie_id:str,
+        data_id:str,
         output_directory:str,
         align_segmentation:bool=True,
     ):
@@ -35,8 +35,8 @@ def nuclei_localization(
         ----------
         manifest_path: str
             Path to the csv manifest of the full dataset
-        movie_id: str
-            Movie ID from manifest for data to process
+        data_id: str
+            Data ID from manifest for data to process
         output_directory: str
             Path to the output directory where the localized nuclei data will be saved.
         align_segmentation: bool
@@ -56,7 +56,7 @@ def nuclei_localization(
     elif df['Gene'].values[0] == 'EOMES|TBR2':
         seg_path = df['EOMES Nuclear Segmentation URL'].values[0]
     else:
-        raise ValueError(f"The move {movie_id} does not have EOMES or H2B segmentations")
+        raise ValueError(f"The move {data_id} does not have EOMES or H2B segmentations")
         
     # import pdb; pdb.set_trace()
     segmentations = BioImage(df['CollagenIV Segmentation Probability URL'].values[0])
@@ -76,7 +76,7 @@ def nuclei_localization(
     # localize nuclei for each timepoint
     num_timepoints = int(df['Image Size T'].values[0])
     nuclei = []
-    for timepoint in tqdm(range(num_timepoints), desc=f"Movie {movie_id}"):
+    for timepoint in tqdm(range(num_timepoints), desc=f"Movie {data_id}"):
         # check if mesh exists for this timepoint
         if f'{timepoint}' not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
@@ -98,7 +98,7 @@ def nuclei_localization(
             alignment_matrix=alignment_matrix
         )
         
-        nuclei_tp['Movie ID'] = movie_id
+        nuclei_tp['Data ID'] = data_id
         nuclei_tp['Time hr'] = timepoint / 0.5
         nuclei.append(nuclei_tp)
         
@@ -109,7 +109,7 @@ def nuclei_localization(
     newcols.extend(cols[:-2])
     nuclei = nuclei[newcols]
 
-    out_fn = out_dir / (movie_id + "_localized_nuclei.csv")
+    out_fn = out_dir / (data_id + "_localized_nuclei.csv")
     nuclei.to_csv(out_fn, index=False)
     rmtree(tmp_dir)
 
@@ -229,8 +229,8 @@ def run_nuclei_localization(
         ----------
         manifest_path: str
             Path to the csv manifest of the full dataset
-        movie_id: str
-            Movie ID from manifest for data to process
+        data_id: str
+            Data ID from manifest for data to process
         output_directory: str
             Path to the output directory where the localized nuclei data will be saved.
         align_segmentation: bool
@@ -243,13 +243,13 @@ def run_nuclei_localization(
 
     print(f"Processing {len(df_cond)} movies with CollagenIV segmentations.")
 
-    for movie_id in tqdm(pd.unique(df_cond['Movie ID']), desc="Movies"):
-        df_id = df_manifest[df_manifest['Movie ID'] == movie_id]
+    for data_id in tqdm(pd.unique(df_cond['Data ID']), desc="Movies"):
+        df_id = df_manifest[df_manifest['Data ID'] == data_id]
 
         # make sure the movie has the required segmentations
         nuclei_localization(
             df=df_id,
-            movie_id=movie_id,
+            data_id=data_id,
             output_directory=output_directory,
             align_segmentation=align_segmentation
         )
