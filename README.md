@@ -24,25 +24,25 @@ pip install -e .
 
 ## 1 - Feature extraction
 
-Run: `python Feature_extraction.py`
+Run: `python EMT_data_analysis/analysis_scripts/Feature_extraction.py`
 
 This will generate one CSV for each movie with the extracted features. CSVs are stored in the folder `EMT_data_analysis/results/feature_extraction`
 
 ## 2 - Metric computation
 
-Run: `python Metric_computation.py`
+Run: `python EMT_data_analysis/analysis_scripts/Metric_computation.py`
 
 This will generate a single CSV containing information about all the movies to be used for analysis. The manifest is saved as `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`.
 
 ## 3 - Nuclei localization
 
-Run: `python Nuclei_localization.py`
+Run: `python EMT_data_analysis/analysis_scripts/Nuclei_localization.py`
 
 This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
 
 ## 4 - Analysis Plots
 
-Run: `python Analysis_tools.py`
+Run: `python EMT_data_analysis/analysis_scripts/Analysis_tools.py`
 
 This will generate the plots in the manuscript and store them in `results/figures` folder. The manifests used as inputs in this workflow are automatically downloaded from [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/) by default. 
 
@@ -60,7 +60,7 @@ Comment out any instance of `pv.start_xvfb()` in the code before running.
 ### All Cells Mask
 Run
 ```bash
-python colony_mask.py --data_id [Optional] --output_directory [Optional]
+python EMT_data_analysis/figure_generation/colony_mask.py --data_id [Optional] --output_directory [Optional]
 ```
 If no input arguments are provided, the code will default to the data shown in the paper and output results to `EMT_data_analysis/results/3D_all_cells_mask`.
 Data ID values are only valid inputs if they have a none-empty value for `All Cells Mask File Download` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/)
@@ -68,7 +68,7 @@ Data ID values are only valid inputs if they have a none-empty value for `All Ce
 ### Inside-Outside Classification
 Run
 ```bash
-python inside-outside_classification.py --data_id [Optional] --output_directory [Optional]
+python EMT_data_analysis/figure_generation/inside-outside_classification.py --data_id [Optional] --output_directory [Optional]
 ```
 If no input arguments are provided, the code will default to the data shown in the paper and output results to `EMT_data_analysis/results/Inside-Outside/mesh-figures`.
 Data ID values are only valid inputs if they have a none-empty value for `CollagenIV Segmentation Mesh Folder` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/)
