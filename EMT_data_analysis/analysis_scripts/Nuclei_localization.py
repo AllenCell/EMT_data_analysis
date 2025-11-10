@@ -86,7 +86,7 @@ def nuclei_localization(
             break
         
         if align_segmentation:
-            alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Camera Alignment Matrix'].values[0])
+            alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Dual Camera Alignment Matrix Value'].values[0])
         else:
             alignment_matrix = np.zeros((3,3))
 
