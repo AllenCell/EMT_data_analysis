@@ -11,13 +11,14 @@ from skimage.measure import regionprops_table
 import pandas as pd
 import argparse
 import quilt3 as q3
+from typing import Optional
 
-from EMT_data_analysis.tools import alignment, io
+from EMT_data_analysis.tools import alignment, io, const
 
 
 def main(
-        data_id: str,
-        output: str
+        data_id: Optional[str]=None,
+        output: Optional[str]=None
     ):
     '''
         Generate three figures for the inside-outside classification of nuclei
@@ -25,24 +26,28 @@ def main(
         
         Parameters
         ----------
-        mesh_fn: str
-            Path to the .vtm file for the whole colony timelapse.
-        mid: str
+        data_id: str
             Data ID of the movie.
-        data_csv: str
-            Path to the CSV file containing the inside-outside classification data.
         output: str
             Path to the output directory where the figures will be saved.
     '''
     # ensure output directory exists
-    output = Path(output)
-    output.mkdir(exist_ok=True, parents=True)
+
+    if data_id is None:
+        data_id = const.EXAMPLE_IO_ID
+
+    if output is None:
+        output = io.setup_base_directory_name("figures/Inside-Outside/mesh-figures")
+    else:
+        output = Path(output)
+        output.mkdir(exist_ok=True, parents=True)
     
     # load data
     df_meta = io.load_imaging_and_segmentation_dataset()
     df_meta = df_meta[df_meta['Data ID'] == data_id]
     df = io.load_inside_outside_classification()
     df = df[df['Data ID'] == data_id]
+    df = df[df['Z']<27]
 
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
     tmp_dir.mkdir(exist_ok=True, parents=True)
@@ -146,14 +151,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate figures for inside-outside classification of nuclei.')
     parser.add_argument(
         '--data_id', 
-        type=str, 
-        default='3500005828_45',
-        help='FMS ID of the movie.'
+        type=str,
+        help='Data ID of the movie.'
     )
     parser.add_argument(
         '--output', 
         type=str,
-        required=True,
         help='Path to the output directory where the figures will be saved.'
     )
     
