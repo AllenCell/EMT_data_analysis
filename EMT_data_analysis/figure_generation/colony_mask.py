@@ -14,12 +14,10 @@ from CGAL.CGAL_Kernel import Point_3
 from skimage.morphology import remove_small_objects
 import argparse
 from typing import List
-
+from EMT_data_analysis.tools import io, const
 
 def main(
-        dataset_manifest_path: str,
-        colony_feature_manifest_path: str,
-        movie_id: str,
+        data_id: str,
         out_dir: str,
     ):
     '''
@@ -27,24 +25,26 @@ def main(
         
         Parameters
         ----------
-        dataset_manifest_path: str
-            Path to the csv manifest containing summary data of the entire dataset
-        colony_feature_manifest_path: str
-            Path to the csv manifest containing results from brightfield colony mask feature extraction.
-        movie_id: str
-            Movie Unique ID of the movie.
+        data_id: str
+            Data ID of the movie.
         out_dir: str
             Path to the output directory where the visualization will be saved.
     '''
+
+    if out_dir is None:
+        out_dir = io.setup_base_directory_name("figures/3D Renders")
+    else:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(exist_ok=True, parents=True)
     
     # get bottom z layer
-    df_feature = pd.read_csv(colony_feature_manifest_path)
-    zbottom = df_feature.loc[df['Movie Unique ID'] == movie_id, 'z_bottom'].values[0]
+    df_feature = io.load_image_analysis_extracted_features()
+    zbottom = int(df_feature.loc[df_feature['Data ID'] == data_id, 'Bottom Z plane'].values[0])
     
     # get segmentation and base filename
-    df_manifest = pd.read_csv(dataset_manifest_path)
-    seg_fn = df_manifest.loc[df_manifest['Movie Unique ID'] == movie_id, 'All Cells Mask File Download'].values[0]
-    seg = BioIo(seg_fn)
+    df_manifest = io.load_imaging_and_segmentation_dataset()
+    seg_fn = df_manifest.loc[df_manifest['Data ID'] == data_id, 'All Cells Mask File Download'].values[0]
+    seg_file = BioImage(seg_fn)
     outname = Path(seg_fn).stem + '_figure'
     
     # lighting setup
@@ -65,6 +65,7 @@ def main(
     )
 
     # process frames for 0, 16, 32, and 48 hours
+    pv.start_xvfb()
     pl = pv.Plotter(off_screen=True, notebook=False, window_size=(1088, 1088))
     for tp in tqdm([0, 32, 64, 96]):
         # clear scene
@@ -231,30 +232,21 @@ def alpha_wrap(points: np.ndarray, alpha: float = 20.0, offset=0.001):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate figures for colony mask segmentation.')
 
+    
     parser.add_argument(
-        '--manifest_path',
+        '--data_id',
         type=str,
-        required=True,
-        help='Path to the csv manifest containing summary data of the entire dataset.'
-    )
-    parser.add_argument(
-        '--feature_path',
-        type=str,
-        required=True,
-        help='Path to the csv manifest containing results from brightfield colony mask feature extraction.'
-    )
-    parser.add_argument(
-        '--movie_id',
-        type=str,
-        required=True,
         help='Movie Unique ID of the movie.'
     )
     parser.add_argument(
         '--output_directory',
         type=str,
-        required=True,
         help='Path to the output directory where the visualization will be saved.'
     )
 
     args = parser.parse_args()
-    main(args.manifest_path, args.feature_path, args.movie_id, args.output_directory)
+    if args.data_id is None:
+        for data_id in const.EXAMPLE_ACM_IDS:
+            main(data_id, args.output_directory)
+    else:
+        main(args.data_id, args.output_directory)

@@ -172,3 +172,6 @@ pdm.toml
 
 #csv
 *.csv
+
+#mesh temporary director
+emt_tmp/

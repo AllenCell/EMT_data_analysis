@@ -38,7 +38,7 @@ def compute_bf_colony_features_all_movies(output_folder, align=True):
         print(f"Movie: {movie_id}")
         
         print("Getting raw data...")
-        raw_path = df_movie["File URL"].values[0]
+        raw_path = df_movie["Raw File URL"].values[0]
         raw_reader = BioImage(raw_path)
         print(raw_path)
         print(raw_reader.shape)
