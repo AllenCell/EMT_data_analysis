@@ -27,6 +27,7 @@ def load_inside_outside_classification(load_from_aws: bool = True):
         metric_comp_results_dir = get_results_directory_name() / "nuclei_localization"
         path = metric_comp_results_dir / "Migration_timing_trough_mesh_extracted_features.csv"
     df = pd.read_csv(path)
+    df = df[df['Z']<27]
     return df
 
 def get_results_directory_name():
