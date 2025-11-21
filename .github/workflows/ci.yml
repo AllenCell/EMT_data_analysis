@@ -1,0 +1,20 @@
+name: CI
+
+on: [push, workflow_dispatch]
+
+jobs:
+  lock-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@94a823180e06fcde4ad29308721954a521c96ed0 # v4.4
+      - run: pdm lock --check
+  requirements-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@94a823180e06fcde4ad29308721954a521c96ed0 # v4.4
+      - run: pdm export -f requirements -o new_requirements.txt
+      - run: diff requirements.txt new_requirements.txt

@@ -245,12 +245,8 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
-<<<<<<< HEAD
     if args.data_id is None:
         for data_id in const.EXAMPLE_ACM_IDS:
             main(data_id, args.output_directory)
     else:
         main(args.data_id, args.output_directory)
-=======
-    main(args.manifest_path, args.feature_path, args.movie_id, args.output_directory)
->>>>>>> 51c2829 (Remove typo)
