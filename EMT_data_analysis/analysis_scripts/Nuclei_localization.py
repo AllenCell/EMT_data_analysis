@@ -154,10 +154,20 @@ def localize_for_timepoint(
         v_idx = mesh.find_closest_point(vert)
         mesh.points[v_idx] = new_vert
 
+    seg = seg.transpose(2, 1, 0)
+    scale = 2.88 / 0.271
+
+    # Calculate roof height to enclose all nuclei in the imaging volume
+    # The roof must be above the maximum possible scaled Z coordinate
+    max_z_slices = seg.shape[2]  # Number of Z slices in imaging volume
+    max_scaled_z = max_z_slices * scale  # Maximum Z after scaling to isotropic
+
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
     vert_up = np.zeros_like(vert)
     np.copyto(vert_up, vert)
-    vert_up[:, 2] = max(vert[:,2])*.9
+    #vert_up[:, 2] = max(vert[:,2])*.9
+    roof_height = max(max(vert[:,2]), max_scaled_z) * 1.05  # 5% margin above max
+    vert_up[:, 2] = roof_height
     face_up = np.zeros_like(faces)
     np.copyto(face_up, faces)
 
@@ -172,8 +182,8 @@ def localize_for_timepoint(
     mesh = trimesh.Trimesh(vertices=vw, faces=fw)
 
     # transpose segmentation to XYZ coordinates and set z-scale for isotropic resolution
-    seg = seg.transpose(2, 1, 0)
-    scale = 2.88 / 0.271
+    #seg = seg.transpose(2, 1, 0)
+    #scale = 2.88 / 0.271
 
     # initialize ray caster (for checking if a point is inside the mesh)
     rayCaster = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
@@ -237,9 +247,23 @@ def run_nuclei_localization(
             Flag to enable alignment of the segmentation using the barcode of the movie.
             Default is True.
     '''
+    # Filter to specific Data IDs for analysis
+    ANALYSIS_DATA_IDS = [
+        '3500005548_43', '3500005548_46', '3500005548_48',
+        #'3500005824_35', '3500005824_36', '3500005824_37', '3500005824_38',
+        #'3500005828_43', '3500005828_45', '3500005828_46', '3500005828_67', '3500005828_70',
+        #'3500006256_19', '3500006256_21',
+        #'3500007081_8',
+        #'3500007213_38',
+        #'3500007247_5',
+        #'3500007432_52', '3500007432_57', '3500007432_63',
+    ]
+
     df_cond = df_manifest[
         [gene in ['HIST1H2BJ', 'EOMES|TBR2'] for gene in df_manifest['Gene'].values]
     ].dropna(subset=['CollagenIV Segmentation Probability URL'])
+
+    df_cond = df_cond[df_cond['Data ID'].isin(ANALYSIS_DATA_IDS)]
 
     print(f"Processing {len(df_cond)} movies with CollagenIV segmentations.")
 
