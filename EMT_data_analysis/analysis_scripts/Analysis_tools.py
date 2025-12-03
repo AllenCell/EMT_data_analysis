@@ -88,7 +88,6 @@ def load_io_data(df):
     ]]
 
     df_io = io.load_inside_outside_classification()
-    df_io = df_io[df_io['Z']<27]
 
     dfio_merged=pd.merge(df_io, df_info, on='Data ID', suffixes=['','_remove'])
     remove = [col for col in dfio_merged.columns if 'remove' in col]

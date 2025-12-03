@@ -154,10 +154,22 @@ def localize_for_timepoint(
         v_idx = mesh.find_closest_point(vert)
         mesh.points[v_idx] = new_vert
 
+    # transpose segmentation to XYZ coordinates and set z-scale for isotropic resolution
+    seg = seg.transpose(2, 1, 0)
+    scale = 2.88 / 0.271
+
+    # Calculate roof height to enclose all nuclei in the imaging volume
+    # The roof must be above the maximum possible scaled Z coordinate
+    max_z_slices = seg.shape[2]  # Number of Z slices in imaging volume
+    max_scaled_z = max_z_slices * scale  # Maximum Z after scaling to isotropic
+
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
     vert_up = np.zeros_like(vert)
     np.copyto(vert_up, vert)
-    vert_up[:, 2] = max(vert[:,2])*.9
+    # Place roof above the maximum scaled Z coordinate of the imaging volume
+    # This ensures all nuclei (including those at high Z) are enclosed
+    roof_height = max(max(vert[:,2]), max_scaled_z) * 1.05  # 5% margin above max
+    vert_up[:, 2] = roof_height
     face_up = np.zeros_like(faces)
     np.copyto(face_up, faces)
 
@@ -170,10 +182,6 @@ def localize_for_timepoint(
     vw, fw = pcu.make_mesh_watertight(vert, faces, 10000)
 
     mesh = trimesh.Trimesh(vertices=vw, faces=fw)
-
-    # transpose segmentation to XYZ coordinates and set z-scale for isotropic resolution
-    seg = seg.transpose(2, 1, 0)
-    scale = 2.88 / 0.271
 
     # initialize ray caster (for checking if a point is inside the mesh)
     rayCaster = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
