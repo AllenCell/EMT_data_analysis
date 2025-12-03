@@ -47,6 +47,7 @@ def main(
     df_meta = df_meta[df_meta['Data ID'] == data_id]
     df = io.load_inside_outside_classification()
     df = df[df['Data ID'] == data_id]
+    df = df[df['Z']<27]
 
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
     tmp_dir.mkdir(exist_ok=True, parents=True)

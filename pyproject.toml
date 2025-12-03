@@ -20,7 +20,7 @@ dependencies = [
     "cgal==6.0.1.post202410241521",
     "trimesh>=4.9.0",
     "vtk==9.3.0",
-    "point-cloud-utils==0.30.4",
+    "pymeshfix>=0.17.0",
     "pyvista>=0.43.10,<0.44",
     "rtree>=1.4.1",
     "scikit_posthocs>=0.9.0",

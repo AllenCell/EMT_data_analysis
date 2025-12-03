@@ -10,7 +10,7 @@ from shutil import rmtree
 # 3d meshing libraries
 import pyvista as pv
 import trimesh
-import point_cloud_utils as pcu
+import pymeshfix
 
 from bioio import BioImage
 
@@ -82,9 +82,6 @@ def nuclei_localization(
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
 
-        if timepoint > 2:
-            break
-        
         if align_segmentation:
             alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Dual Camera Alignment Matrix Value'].values[0])
         else:
@@ -158,30 +155,13 @@ def localize_for_timepoint(
     seg = seg.transpose(2, 1, 0)
     scale = 2.88 / 0.271
 
-    # Calculate roof height to enclose all nuclei in the imaging volume
-    # The roof must be above the maximum possible scaled Z coordinate
-    max_z_slices = seg.shape[2]  # Number of Z slices in imaging volume
-    max_scaled_z = max_z_slices * scale  # Maximum Z after scaling to isotropic
-
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
-    vert_up = np.zeros_like(vert)
-    np.copyto(vert_up, vert)
-    # Place roof above the maximum scaled Z coordinate of the imaging volume
-    # This ensures all nuclei (including those at high Z) are enclosed
-    roof_height = max(max(vert[:,2]), max_scaled_z) * 1.05  # 5% margin above max
-    vert_up[:, 2] = roof_height
-    face_up = np.zeros_like(faces)
-    np.copyto(face_up, faces)
 
-    mesh = trimesh.Trimesh(vertices=vert, faces=faces)
-    roof = trimesh.Trimesh(vertices=vert_up, faces=face_up)
-    mesh_conc = trimesh.util.concatenate(mesh, roof)
-
-    vert, faces = mesh_conc.vertices, mesh_conc.faces
-
-    vw, fw = pcu.make_mesh_watertight(vert, faces, 10000)
-
-    mesh = trimesh.Trimesh(vertices=vw, faces=fw)
+    # Use PyMeshFix to fill holes and create watertight mesh
+    # This preserves geometry better than artificial roof concatenation
+    meshfix = pymeshfix.MeshFix(vert, faces)
+    meshfix.repair(verbose=False)
+    mesh = trimesh.Trimesh(vertices=meshfix.v, faces=meshfix.f)
 
     # initialize ray caster (for checking if a point is inside the mesh)
     rayCaster = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
@@ -232,7 +212,7 @@ def run_nuclei_localization(
     ):
     '''
         This is the main function to localize nuclei inside a 3D mesh.
-        
+
         Parameters
         ----------
         manifest_path: str
@@ -245,9 +225,24 @@ def run_nuclei_localization(
             Flag to enable alignment of the segmentation using the barcode of the movie.
             Default is True.
     '''
+    # Filter to specific Data IDs for analysis
+    ANALYSIS_DATA_IDS = [
+        '3500005548_43', '3500005548_46', '3500005548_48',
+        '3500005824_35', '3500005824_36', '3500005824_37', '3500005824_38',
+        '3500005828_43', '3500005828_45', '3500005828_46', '3500005828_67', '3500005828_70',
+        '3500006256_19', '3500006256_21',
+        '3500007081_8',
+        '3500007213_38',
+        '3500007247_5',
+        '3500007432_52', '3500007432_57', '3500007432_63',
+    ]
+
     df_cond = df_manifest[
         [gene in ['HIST1H2BJ', 'EOMES|TBR2'] for gene in df_manifest['Gene'].values]
     ].dropna(subset=['CollagenIV Segmentation Probability URL'])
+
+    # Filter to only the specified Data IDs
+    df_cond = df_cond[df_cond['Data ID'].isin(ANALYSIS_DATA_IDS)]
 
     print(f"Processing {len(df_cond)} movies with CollagenIV segmentations.")
 
