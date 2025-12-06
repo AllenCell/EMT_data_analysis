@@ -63,11 +63,13 @@
   Core Algorithm (UNCHANGED)
 
   The actual feature computation logic remained the same throughout:
+  ```
   for z in range(seg_img.shape[0]):
       mask = seg_img[z] > 0
       area = np.sum(mask)
       mean_intensity = np.mean(raw_img[z][mask]) if area > 0 else 0
       total_intensity = np.sum(raw_img[z][mask]) if area > 0 else 0
+  ```
 
   This Z-plane-by-Z-plane computation of:
   - Area of all cells mask
