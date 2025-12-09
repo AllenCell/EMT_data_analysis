@@ -66,17 +66,50 @@ def nuclei_localization(
         
     # import pdb; pdb.set_trace()
     segmentations = BioImage(seg_path)
-    
-    # download meshes into temporary directory from s3 bucket
-    mesh_path = df['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
-    bucket = q3.Bucket("s3://allencell")
-    bucket.fetch(
-        mesh_path + '/', 
-        str(tmp_dir) + '/'
-    )
+
+    # Check for local mesh files first, then fall back to S3 bucket
+    # Local mesh directory for resubmission data
+    local_mesh_base = Path("//allen/aics/emt/basement_membrane_segmentation/Resubmission/compile")
+    local_mesh_folder = local_mesh_base / f"{data_id}_collagenIV_segmentation_mesh"
+
+    mesh_fn = None
+    use_local_mesh = False
+
+    # Check if local mesh folder exists with VTM file
+    if local_mesh_folder.exists():
+        local_vtm_files = list(local_mesh_folder.glob('*.vtm'))
+        if local_vtm_files:
+            mesh_fn = local_vtm_files[0]
+            use_local_mesh = True
+            print(f"Using local mesh: {mesh_fn}")
+
+    if not use_local_mesh:
+        # Download meshes into temporary directory from s3 bucket
+        mesh_path = df['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
+        bucket = q3.Bucket("s3://allencell")
+        try:
+            bucket.fetch(
+                mesh_path + '/',
+                str(tmp_dir) + '/'
+            )
+        except Exception as e:
+            print(f"Failed to download mesh for {data_id}: {e}")
+            rmtree(tmp_dir, ignore_errors=True)
+            return
+
+        # load meshes - handle both naming conventions:
+        # 1. DataID-prefixed: {data_id}_collagenIV_segmentation_mesh.vtm
+        # 2. Generic: collagenIV_segmentation_mesh.vtm
+        vtm_files = list(tmp_dir.glob('*.vtm'))
+        if not vtm_files:
+            print(f"No VTM mesh file found for {data_id} in {tmp_dir}")
+            rmtree(tmp_dir, ignore_errors=True)
+            return
+        mesh_fn = vtm_files[0]  # Use the first (and typically only) VTM file
+        print(f"Using S3 mesh: {mesh_fn}")
+
 
     # load meshes
-    mesh_fn = tmp_dir / (mesh_path.split('/')[-1] + '.vtm')
     meshes = pv.read(mesh_fn)
     
     # localize nuclei for each timepoint
