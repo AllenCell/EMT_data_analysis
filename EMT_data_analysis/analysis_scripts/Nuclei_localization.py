@@ -59,8 +59,7 @@ def nuclei_localization(
         raise ValueError(f"The move {data_id} does not have EOMES or H2B segmentations")
         
     # import pdb; pdb.set_trace()
-    segmentations = BioImage(df['CollagenIV Segmentation Probability URL'].values[0])
-
+    segmentations = BioImage(seg_path)
     # download meshes into temporary directory from s3 bucket
     mesh_path = df['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
     bucket = q3.Bucket("s3://allencell")
