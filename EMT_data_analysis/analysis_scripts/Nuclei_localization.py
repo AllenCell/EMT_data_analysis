@@ -120,9 +120,6 @@ def nuclei_localization(
         if f'{timepoint}' not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
-
-        if timepoint > 2:
-            break
         
         if align_segmentation:
             alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Dual Camera Alignment Matrix Value'].values[0])
