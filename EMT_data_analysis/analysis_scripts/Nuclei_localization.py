@@ -50,14 +50,23 @@ def nuclei_localization(
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
     tmp_dir.mkdir(exist_ok=True, parents=True)
     
-    # load segmetnations and meshes
-    if df['Gene'].values[0] == 'HIST1H2BJ':
+    # load segmentations and meshes
+    # First, check for local ZARR file in the reprocessed directory
+    local_zarr_base = Path("/allen/aics/emt/all_cells_masks/ZARR_Conversion/August_24_H2B_reprocess_v2/main")
+    local_zarr_path = local_zarr_base / f"{data_id}_H2B_nuclear_segmentation.ome.zarr"
+
+    if local_zarr_path.exists():
+        seg_path = str(local_zarr_path)
+        print(f"Using local ZARR: {seg_path}")
+    elif df['Gene'].values[0] == 'HIST1H2BJ':
         seg_path = df['H2B Nuclear Segmentation URL'].values[0]
+        print(f"Using H2B segmentation from quilt manifest: {seg_path}")
     else:
         raise ValueError(f"The move {data_id} does not have H2B segmentations")
         
     # import pdb; pdb.set_trace()
     segmentations = BioImage(seg_path)
+    
     # download meshes into temporary directory from s3 bucket
     mesh_path = df['CollagenIV Segmentation Mesh Folder'].values[0].replace('s3://allencell/', '')
     bucket = q3.Bucket("s3://allencell")
