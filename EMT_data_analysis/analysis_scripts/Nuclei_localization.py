@@ -53,10 +53,8 @@ def nuclei_localization(
     # load segmetnations and meshes
     if df['Gene'].values[0] == 'HIST1H2BJ':
         seg_path = df['H2B Nuclear Segmentation URL'].values[0]
-    elif df['Gene'].values[0] == 'EOMES|TBR2':
-        seg_path = df['EOMES Nuclear Segmentation URL'].values[0]
     else:
-        raise ValueError(f"The move {data_id} does not have EOMES or H2B segmentations")
+        raise ValueError(f"The move {data_id} does not have H2B segmentations")
         
     # import pdb; pdb.set_trace()
     segmentations = BioImage(seg_path)
