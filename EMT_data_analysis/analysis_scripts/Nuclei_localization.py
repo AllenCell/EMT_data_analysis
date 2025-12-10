@@ -55,9 +55,15 @@ def nuclei_localization(
     local_zarr_base = Path("/allen/aics/emt/all_cells_masks/ZARR_Conversion/August_24_H2B_reprocess_v2/main")
     local_zarr_path = local_zarr_base / f"{data_id}_H2B_nuclear_segmentation.ome.zarr"
 
+    local_zarr_base_batch2v2 = Path("/allen/aics/emt/nuclear_segmentation/ZARR_Conversion/deliverable_2_v2")
+    local_zarr_path_batch2v2 = local_zarr_base_batch2v2 / f"{data_id}_H2B_nuclear_segmentation.ome.zarr"
+
     if local_zarr_path.exists():
         seg_path = str(local_zarr_path)
-        print(f"Using local ZARR: {seg_path}")
+        print(f"Using batch1 local ZARR: {seg_path}")
+    elif local_zarr_path_batch2v2.exists():
+        seg_path = str(local_zarr_path_batch2v2)
+        print(f"Using batch2_v2 local ZARR: {seg_path}")
     elif df['Gene'].values[0] == 'HIST1H2BJ':
         seg_path = df['H2B Nuclear Segmentation URL'].values[0]
         print(f"Using H2B segmentation from quilt manifest: {seg_path}")
