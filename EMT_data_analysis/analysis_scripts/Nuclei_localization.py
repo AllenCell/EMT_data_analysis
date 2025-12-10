@@ -199,7 +199,7 @@ def localize_for_timepoint(
     vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
     vert_up = np.zeros_like(vert)
     np.copyto(vert_up, vert)
-    vert_up[:, 2] = max(vert[:,2])*.9
+    vert_up[:, 2] = max(vert[:,2])
     face_up = np.zeros_like(faces)
     np.copyto(face_up, faces)
 
