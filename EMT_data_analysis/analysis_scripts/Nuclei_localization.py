@@ -279,9 +279,19 @@ def run_nuclei_localization(
             Flag to enable alignment of the segmentation using the barcode of the movie.
             Default is True.
     '''
-    df_cond = df_manifest[
-        [gene in ['HIST1H2BJ', 'EOMES|TBR2'] for gene in df_manifest['Gene'].values]
-    ].dropna(subset=['CollagenIV Segmentation Probability URL'])
+    # Filter to specific Data IDs for analysis
+    ANALYSIS_DATA_IDS = [
+        '3500005548_43', '3500005548_46', '3500005548_48',
+        '3500005824_35', '3500005824_36', '3500005824_37', '3500005824_38',
+        '3500005828_43', '3500005828_45', '3500005828_46', '3500005828_67', '3500005828_70',
+        '3500006256_19', '3500006256_21',
+        '3500007081_8',
+        '3500007213_38',
+        '3500007247_5',
+        '3500007432_52', '3500007432_57', '3500007432_61', '3500007432_63',
+    ]
+
+    df_cond = df_manifest[df_manifest['Data ID'].isin(ANALYSIS_DATA_IDS)]
 
     print(f"Processing {len(df_cond)} movies with CollagenIV segmentations.")
 
