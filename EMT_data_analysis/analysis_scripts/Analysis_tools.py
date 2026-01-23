@@ -29,6 +29,8 @@ def run_all_analyses():
 
     df = io.load_image_analysis_extracted_features()
     
+    print("Loaded image analysis extracted features and started running analyses...")
+
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)

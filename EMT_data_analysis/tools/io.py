@@ -17,6 +17,7 @@ def load_image_analysis_extracted_features(load_from_aws: bool = True):
         # Or read from local if the user decides to run Metric_computation.py
         metric_comp_results_dir = get_results_directory_name() / "metric_computation"
         path = metric_comp_results_dir / "Image_analysis_extracted_features.csv"
+    print(f'Loading image analysis extracted features from {path}. This may take a while...')
     df = pd.read_csv(path)
     return df
 
