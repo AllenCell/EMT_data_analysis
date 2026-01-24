@@ -748,6 +748,8 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         X = df_gene['Collagenease concentration (ug/mL)']
         Y = df_gene['Migration Onset Time (Footprint Area Based)']
 
+        _ = bootstrap_corr(X, Y, "Spearman")
+
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -775,7 +777,6 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
             print(f"On average, for each 1 ug/mL increase in drug concentration, the migration time changes by {slope_coeff:.2f} hours.")
         else:
             print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
-
 
 def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     """
@@ -1044,8 +1045,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     X = dfio_scatter['Migration Onset Time (Footprint Area Based)']
     Y = dfio_scatter['Migration Onset Time (Inside/Outside Basement Membrane Based)']
 
-    p_results = pearsonr(X.values, Y.values)
-    r_results = spearmanr(X.values, Y.values)
+    p_results = bootstrap_corr(X.values, Y.values, "Pearson")
+    r_results = bootstrap_corr(X.values, Y.values, "Spearman")
     print('n: {0:d}'.format(n_movies_io))
     print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
     print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
