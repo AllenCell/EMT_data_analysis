@@ -20,6 +20,34 @@ plt.rcParams["pdf.fonttype"] = 42
 
 warnings.filterwarnings("ignore")
 
+def bootstrap_corr(x, y, method="Pearson", confidence_interval=0.95, n_bootstraps=2000, seed=42, verbose=True):
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    corr_func = pearsonr
+    if method == "Spearman":
+        corr_func = spearmanr
+
+    r_observed, p_value = corr_func(x, y)
+    n_samples = len(x)
+
+    inds = np.arange(n_samples)
+    boot_corrs = []
+    for _ in range(n_bootstraps):
+        resampled_inds = np.random.choice(inds, size=n_samples, replace=True)
+        rx = x[resampled_inds]
+        ry = y[resampled_inds]
+        boot_r, _ = corr_func(rx, ry)
+        boot_corrs.append(boot_r)
+    alpha = (1.0-confidence_interval)/2.0
+    ci_low = np.nanpercentile(boot_corrs, 100*alpha)
+    ci_high = np.nanpercentile(boot_corrs, 100*(1.0-alpha))
+
+    if verbose:
+        print(f'{method} Correlation: {r_observed:.3g} | 95% CI: [{ci_low:.2f}, {ci_high:.2f}] | p-value: {p_value:.3g}')
+
+    return r_observed, p_value, ci_low, ci_high
+
 def run_all_analyses():
     """
     Run all analysis functions
@@ -613,10 +641,8 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
             migration = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             metric = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
         
-            pearson, p_pvalue = pearsonr(migration, metric)
-            spearman, s_pvalue = spearmanr(migration, metric)
-            print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
-            print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
+            pearson, p_pvalue, _, _ = bootstrap_corr(migration, metric, "Pearson")
+            spearman, s_pvalue, _, _ = bootstrap_corr(migration, metric, "Spearman")
 
             X = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             Y = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
@@ -640,11 +666,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         migration = df_g['Migration Onset Time (Footprint Area Based)']
         metric = df_g['gene_metric']
 
-        pearson, p_pvalue = pearsonr(migration, metric)
-        spearman, s_pvalue = spearmanr(migration, metric)
-        print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
-        print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
-        
+        pearson, p_pvalue, _, _ = bootstrap_corr(migration, metric, "Pearson")
+        spearman, s_pvalue, _, _ = bootstrap_corr(migration, metric, "Spearman")
+
         X = df_g['Migration Onset Time (Footprint Area Based)']
         Y = df_g['gene_metric']
 
