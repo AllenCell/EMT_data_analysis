@@ -20,6 +20,8 @@ plt.rcParams["pdf.fonttype"] = 42
 
 warnings.filterwarnings("ignore")
 
+rng = np.random.default_rng(42) 
+
 def bootstrap_corr(x, y, method="Pearson", confidence_interval=0.95, n_bootstraps=2000, seed=42, verbose=True):
     x = np.asarray(x)
     y = np.asarray(y)
@@ -34,7 +36,7 @@ def bootstrap_corr(x, y, method="Pearson", confidence_interval=0.95, n_bootstrap
     inds = np.arange(n_samples)
     boot_corrs = []
     for _ in range(n_bootstraps):
-        resampled_inds = np.random.choice(inds, size=n_samples, replace=True)
+        resampled_inds = rng.choice(inds, size=n_samples, replace=True)
         rx = x[resampled_inds]
         ry = y[resampled_inds]
         boot_r, _ = corr_func(rx, ry)
@@ -44,6 +46,7 @@ def bootstrap_corr(x, y, method="Pearson", confidence_interval=0.95, n_bootstrap
     ci_high = np.nanpercentile(boot_corrs, 100*(1.0-alpha))
 
     if verbose:
+        print(f'Number of samples: {n_samples}')
         print(f'{method} Correlation: {r_observed:.3g} | 95% CI: [{ci_low:.2f}, {ci_high:.2f}] | p-value: {p_value:.3g}')
 
     return r_observed, p_value, ci_low, ci_high
