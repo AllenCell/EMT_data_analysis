@@ -5,6 +5,7 @@ for analysis_plot.py file. It requires the input of the folder path where
 the files from feature_extraction.py file are stored.
 '''
 import warnings
+import time
 import numpy as np
 import pandas as pd
 import scipy.ndimage
@@ -13,8 +14,63 @@ from bioio import BioImage
 from scipy.signal import savgol_filter
 from EMT_data_analysis.tools import io
 from pathlib import Path
+from joblib import Parallel, delayed
 
 warnings.filterwarnings("ignore")
+
+
+def _process_single_movie_area(data_id, z_bottom, mask_url, timepoints, max_retries=5):
+    """
+    Helper function to compute area at the glass for a single movie.
+    Designed to be called in parallel. Includes retry logic for network errors.
+    """
+    if pd.isna(mask_url):
+        return [], None
+
+    results = []
+
+    # Retry logic for loading BioImage
+    img_seg = None
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            img_seg = BioImage(mask_url)
+            break  # Success, exit retry loop
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait_time = min(2 ** attempt, 30)  # Exponential backoff: 1, 2, 4, 8, 16 (max 30)
+                time.sleep(wait_time)
+            continue
+
+    if img_seg is None:
+        print(f"Error loading {data_id} after {max_retries} retries: {last_error}")
+        return [], data_id
+
+    try:
+        # Check actual T dimension of the image
+        actual_t_size = img_seg.dims.T
+        is_fixed_cell = (actual_t_size == 1)
+
+        for t in timepoints:
+            # For fixed cells (single timepoint), always use T=0 regardless of computed timepoint
+            t_index = 0 if is_fixed_cell else min(int(t), actual_t_size - 1)
+            img_seg_tl = img_seg.get_image_dask_data("ZYX", T=t_index)
+            img_z = img_seg_tl[z_bottom:z_bottom+2]
+            z_max_proj = np.max(img_z, axis=0)
+            img_fh = scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)
+
+            area_pixels = np.count_nonzero(img_fh)
+            results.append({
+                'Data ID': data_id,
+                'Timepoint': t,
+                'Area at the glass (pixels)': area_pixels,
+                'Area at the glass(square micrometer)': area_pixels * (0.271 * 0.271)
+            })
+        return results, None
+    except Exception as e:
+        print(f"Error processing {data_id}: {e}")
+        return [], data_id
 
 # %% [markdown]
 def add_bottom_z(df):
@@ -52,53 +108,108 @@ def add_bottom_z(df):
 
     df_normalized_z=pd.merge(df,df_bottom_z, on=['Data ID'])
 
-    df_normalized_z['Normalized Z plane']=df_normalized_z.apply(lambda x: x['Z plane']-x['Bottom Z plane'], axis=1)
+    # Vectorized subtraction (much faster than apply with lambda)
+    df_normalized_z['Normalized Z plane'] = df_normalized_z['Z plane'] - df_normalized_z['Bottom Z plane']
 
     return df_normalized_z
 
 
-def add_bottom_mip_migration(df_merged):
+def add_bottom_mip_migration(df_merged, n_jobs=-1):
     '''
     This adds area of MIP of bottom 2Z planes to get area at the glass and compute migration time from that.
-    
+
     Parameters
     ----------
     df_merged: DataFrame
-        Dataframe with Bottom Z plane column and All-cells mask paths for each movie (merging df_normalized_z with Imaging_and_segmentation_data.csv)
+        Dataframe with 'Data ID', 'Timepoint', 'Bottom Z plane', and 'All Cells Mask URL' columns.
+    n_jobs: int
+        Number of parallel jobs. -1 uses all available cores. Default: -1.
 
     Returns
     -------
     df_mm: DataFrame
-        Returns the input DataFrame with 'Area at the glass (pixels)','Area at the glass(square micrometer)' and 'Migration time (h)' columns
-        '''
-     
-    df_mm=pd.DataFrame()
-    for id, df_id in tqdm(df_merged.groupby('Data ID')):
-        ar_v,tp=[],[]
+        Returns DataFrame with 'Data ID', 'Timepoint', 'Area at the glass (pixels)',
+        'Area at the glass(square micrometer)' columns
+    '''
 
-        l = df_id['Timepoint'].max()
-        for t, df_tp in df_id.groupby('Timepoint'):
-            if t > l:
-                break
-            z_bottom=df_tp['Bottom Z plane'].values[0]
-            img_seg = BioImage(df_tp['All Cells Mask URL'].values[0])
-            img_seg_tl = img_seg.get_image_dask_data("ZYX")
-            img_z=img_seg_tl[z_bottom:z_bottom+2]
-            z_max_proj = np.max(img_z,axis=0)
-            img_fh=scipy.ndimage.binary_fill_holes(z_max_proj).astype(int)
-        
-            ar2=np.count_nonzero(img_fh)
-            ar_v.append(ar2)
-            tp.append(t)
-        df_area=pd.DataFrame(zip(tp,ar_v), columns=['Timepoint','Area at the glass (pixels)'])
-        
-        df_area['Area at the glass(square micrometer)']=df_area['Area at the glass (pixels)']*(0.271*0.271)
-        df_area['Data ID']=id
-        df_merged_area=pd.merge(df_id,df_area, on=['Data ID','Timepoint'])
-        df_mm=pd.concat([df_mm,df_merged_area])
+    # Prepare arguments for parallel processing
+    movie_args = []
+    for data_id, df_id in df_merged.groupby('Data ID'):
+        z_bottom = df_id['Bottom Z plane'].values[0]
+        mask_url = df_id['All Cells Mask URL'].values[0]
+        timepoints = sorted(df_id['Timepoint'].unique())
+        movie_args.append((data_id, z_bottom, mask_url, timepoints))
 
+    print(f"Processing {len(movie_args)} movies with {n_jobs} parallel jobs...")
+
+    # Process movies in parallel
+    all_results = Parallel(n_jobs=n_jobs, verbose=10)(
+        delayed(_process_single_movie_area)(data_id, z_bottom, mask_url, timepoints)
+        for data_id, z_bottom, mask_url, timepoints in movie_args
+    )
+
+    # Flatten results list and collect failed movies
+    results = []
+    failed_movies = []
+    for movie_results, failed_id in all_results:
+        results.extend(movie_results)
+        if failed_id is not None:
+            failed_movies.append(failed_id)
+
+    if failed_movies:
+        print(f"\nWARNING: {len(failed_movies)} movies failed after retries:")
+        for movie_id in failed_movies:
+            print(f"  - {movie_id}")
+
+    # Single DataFrame creation at the end
+    df_mm = pd.DataFrame(results)
     return df_mm
     
+
+def add_metadata_only_movies(df_features, Imaging_and_segmentation_data):
+    """
+    Add metadata-only movies (those without All Cells Mask) to the feature manifest.
+    These movies have metadata but couldn't be processed by feature extraction
+    because they lack segmentation masks.
+
+    Parameters
+    ----------
+    df_features: DataFrame
+        The main feature dataframe with processed movies
+    Imaging_and_segmentation_data: DataFrame
+        Full imaging and segmentation metadata
+
+    Returns
+    -------
+    df_combined: DataFrame
+        Combined dataframe with both processed and metadata-only movies
+    """
+    # Find movies without All Cells Mask URL (metadata-only)
+    df_no_mask = Imaging_and_segmentation_data[
+        Imaging_and_segmentation_data['All Cells Mask URL'].isna()
+    ]
+    metadata_only_ids = set(df_no_mask['Data ID'].unique())
+
+    # Exclude any that might already be in features (shouldn't happen, but safe check)
+    processed_ids = set(df_features['Data ID'].unique())
+    metadata_only_ids = metadata_only_ids - processed_ids
+
+    if len(metadata_only_ids) == 0:
+        print("No metadata-only movies to add")
+        return df_features
+
+    print(f"Adding {len(metadata_only_ids)} metadata-only movies (no All Cells Mask)")
+
+    # Get metadata for these movies (one row per movie)
+    df_metadata_only = Imaging_and_segmentation_data[
+        Imaging_and_segmentation_data['Data ID'].isin(metadata_only_ids)
+    ].drop_duplicates('Data ID')
+
+    # Combine with existing features
+    df_combined = pd.concat([df_features, df_metadata_only], ignore_index=True, sort=False)
+
+    return df_combined
+
 
 def add_gene_metrics(df_features):
     '''
@@ -171,10 +282,10 @@ def add_gene_metrics(df_features):
     for id, df_id in df_sox.groupby('Data ID'):
         df_id=df_id.sort_values('Timepoint')
         df_id['int_smooth']=savgol_filter(df_id.mean_intensity.values,polyorder=2, window_length=10) 
-        int_50=(max(df_id.int_smooth.values[0])+min(df_id.int_smooth))/2
+        int_50=(max(df_id.int_smooth)+min(df_id.int_smooth))/2
         t_50=min(df_id['Timepoint'][(df_id.int_smooth<=int_50)])
         Movie_ids_sox.append(id)
-        time_half_maximal_sox.append(t_50)
+        time_half_maximal_sox.append(t_50*(30/60))
     df_sox_metrics=pd.DataFrame(zip(Movie_ids_sox, time_half_maximal_sox), columns=['Data ID','Time of half-maximal SOX2 expression (h)'])
 
     #merging eomes metrics with feature manifest
@@ -185,20 +296,23 @@ def add_gene_metrics(df_features):
 
 # %% [markdown]
 ## master function to implement the pipeline
-def compute_metrics(output_folder):
+def compute_metrics(output_folder, load_from_aws: bool = True, local_imaging_csv: str = None):
     '''
     This is a master function that implements every function and post processing to save a compiled final manifest to be used with analysis_plots.py
 
     Parameters
     ----------
-    Imaging_and_segmentation_data: DataFrame
-        Dataframe with imaging and segmentation information for each movie
-
-    all_cells_feature_csvs_folder: Folder path
-        Path to the folder where csvs per movie for the features extracted from all-cells masks is stored
-
-    final_feature_folder: folder path
+    output_folder: Path
         Path to the folder to save the final feature manifest
+
+    load_from_aws: bool, default True
+        If True, load imaging_and_segmentation_data from AWS S3.
+        If False, load from local file.
+
+    local_imaging_csv: str, optional
+        Path to local imaging_and_segmentation_data.csv file.
+        Only used when load_from_aws=False. If not provided, uses default local path.
+
     Returns
     -------
     df_features_final: DataFrame
@@ -207,47 +321,108 @@ def compute_metrics(output_folder):
     print('compiling intensity and z features into a single dataframe')
 
     df = io.load_bf_colony_features()
+    #df = df[df['Data ID'] == '3500005824_35']
 
     print('computing glass information for normalized z position')
     df_all_z=add_bottom_z(df)
     print(len(df_all_z.index))
 
     print('merging the bottom z information with the colony mask path csv')
-    df_z = df_all_z.groupby('Data ID')['Bottom Z plane'].agg('first').reset_index()
-    Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset()
-    df_merged = pd.merge(df_z,Imaging_and_segmentation_data, how='left', on=['Data ID'])
+    Imaging_and_segmentation_data = io.load_imaging_and_segmentation_dataset(
+        load_from_aws=load_from_aws,
+        local_path=local_imaging_csv
+    )
+
+    # Pass only needed columns to add_bottom_mip_migration (reduces memory and speeds up groupby)
+    df_for_area = df_all_z[['Data ID', 'Timepoint', 'Bottom Z plane']].drop_duplicates()
+    df_for_area = pd.merge(
+        df_for_area,
+        Imaging_and_segmentation_data[['Data ID', 'All Cells Mask URL']],
+        on='Data ID',
+        how='left'
+    )
 
     print('computing area at the glass (bottom 2 z MIP) and migration time')
-    df_mm=add_bottom_mip_migration(df_merged)
+    df_mm = add_bottom_mip_migration(df_for_area)
     print(len(df_mm.index))
 
     print('merging everything into a single feature manifest')
-    df_features=pd.merge(df_all_z,df_mm, on=['Data ID','Timepoint','Z plane'], suffixes=("","_remove"), how='left')
-    df_features.drop([i for i in df_features.columns if 'remove' in i], axis=1, inplace=True)
+    # Merge area results back to full dataframe
+    df_features = pd.merge(df_all_z, df_mm, on=['Data ID', 'Timepoint'], how='left')
+    # Merge imaging metadata (only columns not already in df_features to avoid duplicates)
+    existing_cols = set(df_features.columns)
+    new_cols = ['Data ID'] + [col for col in Imaging_and_segmentation_data.columns
+                               if col not in existing_cols]
+    df_features = pd.merge(df_features, Imaging_and_segmentation_data[new_cols], on=['Data ID'], how='left')
     print(len(df_features.index))
+
+    # Round migration onset times to nearest 0.5 hour to align with Time hr grid
+    io_col = 'Migration Onset Time (Inside/Outside Basement Membrane Based)'
+    if io_col in df_features.columns:
+        df_features[io_col] = (df_features[io_col] * 2).round() / 2
+        print(f'Rounded {io_col} to nearest 0.5 hour')
+
+    manual_col = 'Migration Onset Time (Manual First Cell Detection)'
+    if manual_col in df_features.columns:
+        df_features[manual_col] = (df_features[manual_col] * 2).round() / 2
+        print(f'Rounded {manual_col} to nearest 0.5 hour')
 
     print('adding gene specific metrics...')
     df_features_addons=add_gene_metrics(df_features)
-    #only including the columns of interest
-    features = ['Data ID', 'Experimental Condition', 'Gene',
+
+    # Reorder columns to put key analysis columns first, then metadata
+    priority_columns = ['Data ID', 'Experimental Condition', 'Gene',
        'Single Colony Or Lumenoid At Time of Migration',
        'Absence Of Migrating Cells Coming From Colony Out Of FOV At Time Of Migration',
        'Timelapse Interval', 'Timepoint', 'Z plane',
        'Area of all cells mask per Z (pixels)',
        'Area of all cells mask per Z (square micrometer)',
-       'Mean intensity per Z', 'Total intensity per Z', 'Bottom Z plane',
+       'Mean intensity per Z', 'Total intensity per Z',
+       'Mean intensity per Z (Channel 2)', 'Total intensity per Z (Channel 2)',
+       'Mean intensity per Z (Channel 3)', 'Total intensity per Z (Channel 3)',
+       'Bottom Z plane',
        'Normalized Z plane', 'Area at the glass (pixels)',
-       'Area at the glass(square micrometer)']
-    features = [feat for feat in features if feat in df_features_addons.columns]
-    df_features_final=df_features_addons[features]
+       'Area at the glass(square micrometer)',
+       'Time of max EOMES expression (h)',
+       'Time of max TBXT expression (h)',
+       'Time of inflection of E-cad expression (h)',
+       'Time of half-maximal SOX2 expression (h)',
+       'Migration Onset Time (Inside/Outside Basement Membrane Based)',
+       'Migration Onset Time (Manual First Cell Detection)']
+
+    # Get priority columns that exist, then add remaining columns
+    existing_priority = [col for col in priority_columns if col in df_features_addons.columns]
+    other_columns = [col for col in df_features_addons.columns if col not in priority_columns]
+    all_columns = existing_priority + other_columns
+
+    df_features_final = df_features_addons[all_columns]
+    print(f"Final columns: {len(df_features_final.columns)}")
     print(len(df_features_final.index))
 
+    # Add metadata-only movies (those without image data but with metadata)
+    print('adding metadata-only movies...')
+    df_features_final = add_metadata_only_movies(df_features_final, Imaging_and_segmentation_data)
+    print(f"Total Data IDs after adding metadata-only movies: {df_features_final['Data ID'].nunique()}")
+
     print('saving the final feature file')
-    df_features_final.to_csv(output_folder / f"Image_analysis_extracted_features.csv")
+    df_features_final.to_csv(output_folder / f"Image_analysis_extracted_features.csv", index=False)
 
 
 
 # %% [markdown]
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Compute metrics for EMT analysis')
+    parser.add_argument('--local', action='store_true',
+                        help='Load imaging_and_segmentation_data from local file instead of AWS')
+    parser.add_argument('--local-csv', type=str, default=None,
+                        help='Path to local imaging_and_segmentation_data.csv (only used with --local)')
+    args = parser.parse_args()
+
     base_results_dir = io.setup_base_directory_name("metric_computation")
-    df_features_all = compute_metrics(output_folder=base_results_dir)
+    df_features_all = compute_metrics(
+        output_folder=base_results_dir,
+        load_from_aws=not args.local,
+        local_imaging_csv=args.local_csv
+    )
