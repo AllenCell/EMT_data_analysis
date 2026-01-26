@@ -88,7 +88,7 @@ def load_io_data(df):
     ]]
 
     df_io = io.load_inside_outside_classification()
-    df_io = df_io[df_io['Z']<27]
+    #df_io = df_io[df_io['Z']<27]
 
     dfio_merged=pd.merge(df_io, df_info, on='Data ID', suffixes=['','_remove'])
     remove = [col for col in dfio_merged.columns if 'remove' in col]
@@ -228,7 +228,9 @@ def plot_area_at_glass_h2b(df, figs_dir, out_type):
     plt.ylim(0,170000)
     plt.rcParams.update({'font.size':14})
     plt.tight_layout()
-    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
+    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+    # Used_for information - 
+    # these figures are labeled as - Fig. 3B
     plt.savefig(rf'{figs_dir}/Area_at_the_glass_over_time_MIP_HIST1H2BJ_n{n_a}.{out_type}', transparent=True, dpi=600)
 
     plot_tools.plot_examples(
@@ -293,6 +295,8 @@ def plot_migration_timing_h2b(df, figs_dir, out_type):
     
     fig_mig = px.box(df_summary[df_summary['Gene']=='HIST1H2BJ'], x='Condition order for plots', y='Migration Onset Time (Footprint Area Based)', color='Condition order for plots', color_discrete_map=const.COLOR_MAP, points='all', template='simple_white',range_y=(15,35), width=800, height=600)
     fig_mig.update_layout(yaxis_title='Migration Onset Time (Footprint Area Based)',font=dict(size=18))
+    # Used_for information - 
+    # these figures are labeled as - Fig. 3D
     fig_mig.write_image(rf'{figs_dir}/Migration_box_plot_HIST1H2BJ_n{n_m}.{out_type}', scale=2 )
 
     print('\n\n\n...statitsitcal analysis of overall migriation timing between the conditions for HIST1H2BJ...')
@@ -339,6 +343,10 @@ def plot_migration_timing_by_gene(df, figs_dir, out_type):
     fig_mig_g.update_layout(showlegend=False)
     fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
     fig_mig_g.update_layout(boxgroupgap=0.5, boxgap=0.5)
+
+    # Used_for information - 
+    # these figures are labeled as - Extended Data Fig. 5
+    # all data ids should be labeled as - Extended Data Fig. 5
     fig_mig_g.write_image(rf'{figs_dir}/Migration_box_plot_per_gene_all_conditions.{out_type}', scale=2 )
 
     df_summary = df_summary[df_summary['Gene']!='CLYBL']
@@ -402,7 +410,13 @@ def plot_mean_intensity_by_gene(df, figs_dir, out_type):
         
         plt.rcParams.update({'font.size':14})
         plt.tight_layout()
-        plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left') 
+        plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+        # Used_for information - 
+        # these figures are labeled as - Fig. 5
+        # for Gene = SOX2, labels are Fig. 5B
+        # for Gene = TBXT, labels are Fig. 5G
+        # for Gene = EOMES, labels are Fig. 5L
+        # for Gene = CDH1, labels are Fig. 5Q 
         plt.savefig(fr'{figs_dir}/Mean_intensity_plot_{g}_n{n}_mean_line.{out_type}', dpi=600, transparent=True) 
 
     Path(rf'{figs_dir}/Individual_Examples').mkdir(exist_ok=True, parents=True)
@@ -538,6 +552,12 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
 
         fig_difference.update_layout(xaxis_title='Cell lines', yaxis_title='Time of expression change (h)', font=dict(size=18))
         fig_difference.update_layout(boxgroupgap=0.5, boxgap=0.25)
+        # Used_for information - 
+        # these figures are labeled as - Fig. 5
+        # data ids with CDH1 are labeled as - Fig. 5S
+        # data ids with EOMES are labeled as - Fig. 5N
+        # data ids with TBXT are labeled as - Fig. 5I
+        # data ids with SOX2 are labeled as - Fig. 5D
         fig_difference.write_image(rf'{figs_dir}/Timing_of_expression_change_relative_to_EMT_induction_T_0_for_{g}_FigS5a.{out_type}', scale=2 )
 
 
@@ -558,6 +578,12 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         plt.xlabel(metric_dict[g], fontsize=16)
         plt.ylabel('Migration Onset Time (Footprint Area Based)', fontsize=16)
         plt.rcParams.update({'font.size':16})
+        # Used_for information - 
+        # these figures are labeled as - Fig. 5
+        # data ids with CDH1 are labeled as - Fig. 5T
+        # data ids with EOMES are labeled as - Fig. 5O
+        # data ids with TBXT are labeled as - Fig. 5J
+        # data ids with SOX2 are labeled as - Fig. 5E
         plt.savefig(fr'{figs_dir}/Scatter_plot_between_{g}_metric_and_migration_time.{out_type}', dpi=600)
 
 
@@ -608,16 +634,19 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         for cond in ['2D PLF', '2D colony EMT', '3D lumenoid EMT']:
             print('\n-----------')
             print(f'Condition: {cond}')
-            migration = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
-            metric = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
-        
+            # Filter for condition first, then drop rows where either column is NaN
+            df_cond = df_g[[cond in val for val in df_g['Experimental Condition'].values]].copy()
+            df_cond = df_cond[['Migration Onset Time (Footprint Area Based)', 'gene_metric']].dropna()
+            migration = df_cond['Migration Onset Time (Footprint Area Based)']
+            metric = df_cond['gene_metric']
+
             pearson, p_pvalue = pearsonr(migration, metric)
             spearman, s_pvalue = spearmanr(migration, metric)
             print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
             print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
 
-            X = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
-            Y = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
+            X = migration
+            Y = metric
 
             # It's important to add a constant (intercept) to the model
             X = sm.add_constant(X)
@@ -635,16 +664,18 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
             print(f"P-value for the slope: {slope_p_value:.3g}") # Using 'g' for scientific notation if needed
 
         print('\n\n-------Statistics for entire metric------------')
-        migration = df_g['Migration Onset Time (Footprint Area Based)']
-        metric = df_g['gene_metric']
+        # Drop rows where either column is NaN to ensure aligned data
+        df_gene_clean = df_g[['Migration Onset Time (Footprint Area Based)', 'gene_metric']].dropna()
+        migration = df_gene_clean['Migration Onset Time (Footprint Area Based)']
+        metric = df_gene_clean['gene_metric']
 
         pearson, p_pvalue = pearsonr(migration, metric)
         spearman, s_pvalue = spearmanr(migration, metric)
         print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
         print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
-        
-        X = df_g['Migration Onset Time (Footprint Area Based)']
-        Y = df_g['gene_metric']
+
+        X = migration
+        Y = metric
 
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
@@ -694,6 +725,8 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
         fig_mig_g.update_layout(boxgroupgap=0.4, boxgap=0.4)
+        # Used_for information - 
+        # these figures are labeled as - Fig. 6E
         fig_mig_g.write_image(rf'{figs_dir}/Collagenase/Migration_box_plot_{gene}_per_conditions.{out_type}', scale=2 )
 
         print('Gene: ', gene)
@@ -780,6 +813,8 @@ def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
         fig_mig_g.update_layout(xaxis_title='Cell lines', yaxis_title='Migration in real time (h)', font=dict(size=18))
         fig_mig_g.update_traces(width=0.6)
         fig_mig_g.update_layout(boxgroupgap=0.4, boxgap=0.4)
+        # Used_for information - 
+        # these figures are labeled as - Fig. 6F
         fig_mig_g.write_image(rf'{figs_dir}/MMPi/Migration_box_plot_{gene}_per_conditions.{out_type}', scale=2 )
 
         print('Gene: ', gene)
@@ -1314,6 +1349,11 @@ def plot_bmp_inhibitor_migration(df, figs_dir: str, out_type):
         fig_mig.update_layout(showlegend=False)
 
         col_type = col.replace(' ','-')
+        # Used_for information - 
+        # these figures are labeled as - Extended Data Fig. 2
+        # data ids for 2D PLF EMT cases should be labeled as - Extended Data Fig. 2C
+        # data ids for 2D EMT cases should be labeled as - Extended Data Fig. 2D
+        # data ids for 3D EMT cases should be labeled as - Extended Data Fig. 2E
         fig_mig.write_image(fr'{figs_dir}/BMP/BMP_inhibitor_migration_timing_for_{col_type}.{out_type}', scale=2 )
 
 
@@ -1360,7 +1400,7 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         'Snail (Mouse host)': 'Snail',
         'Twist1 (Rabbit host)': 'Twist1',
         'Vimentin (Chicken host)': 'Vimentin',
-        'H3Kme2 (Rabbit host)': 'H3Kme2',
+        'H3K36me2 (Rabbit host)': 'H3K36me2',
     }
 
     custom_label_order = [
@@ -1371,7 +1411,7 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "Snail",
         "Twist1",
         "Vimentin",
-        "H3Kme2",
+        "H3K36me2",
     ]
 
     custom_condition_order = [
@@ -1473,6 +1513,8 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
     # Sorting label and condiiton order
     df_sort = _sort_dataframe(df_final)
     
+    # Used_for information - 
+    # these figures are labeled as - Fig. 4C
     # Create heatmap of the final intensities for each time for each Label
     _create_heatmap(df_sort, title="immuno_heatmap", figs_dir=figs_dir, output_type=output_type)
 
@@ -1550,6 +1592,10 @@ def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
             ax.set_xticks(ticks)
             ax.set_xticklabels(ticks)            
             ax.legend()
+            # Used_for information -
+            # these figures are labeled as - Extended Data Fig. 3
+            # data ids with label "TBXT" cases should be labeled as - Extended Data Fig. 3B
+            # data ids with label "E-cadherin", "N-cadherin", "Eomes", "Snail", "Twist1", "Vimentin", "H3K36me2" cases should be labeled as - Extended Data Fig. 3C
             plt.savefig(f"{FIGS_DIR}/Immunostaining/{gene} - {cond}.{OUT_TYPE}")
 
 
