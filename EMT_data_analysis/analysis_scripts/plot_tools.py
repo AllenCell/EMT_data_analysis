@@ -7,6 +7,30 @@ import matplotlib.pyplot as plt
 
 from EMT_data_analysis.tools import const
 
+
+def _find_nearest_timepoint(df, time_column, target_time):
+    """
+    Find the nearest timepoint value in a dataframe column to a target time.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Dataframe containing the time column
+    time_column : str
+        Name of the column containing timepoint values
+    target_time : float
+        Target time value to find the nearest match for
+
+    Returns
+    -------
+    float
+        The nearest timepoint value from the dataframe
+    """
+    timepoints = df[time_column].unique()
+    idx = np.abs(timepoints - target_time).argmin()
+    return timepoints[idx]
+
+
 def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable='Mean Intensity', out_type='pdf'):
     '''
     This function  plots one example for individual trajectories of mean intensity over time for each condition to represent how the gene metrics 
@@ -45,19 +69,22 @@ def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable=
 
     fig,ax=plt.subplots(1,1,figsize=(8,6))
 
+    # Use nearest timepoint matching to handle floating point precision differences
     x_metric_2d=df_2d[metric].values[0]
-    y_metric_2d=df_2d[variable][df_2d['Timepoint (h)']==x_metric_2d].values[0]
+    nearest_tp_2d = _find_nearest_timepoint(df_2d, 'Timepoint (h)', x_metric_2d)
+    y_metric_2d=df_2d[variable][df_2d['Timepoint (h)']==nearest_tp_2d].values[0]
     ax.plot(df_2d['Timepoint (h)'],df_2d[variable], c='deepskyblue', linewidth=3)
     ax.scatter(x_metric_2d,y_metric_2d,c='black', marker='D', s=100)
 
-
     x_metric_plf=df_plf[metric].values[0]
-    y_metric_plf=df_plf[variable][df_plf['Timepoint (h)']==x_metric_plf].values[0]
+    nearest_tp_plf = _find_nearest_timepoint(df_plf, 'Timepoint (h)', x_metric_plf)
+    y_metric_plf=df_plf[variable][df_plf['Timepoint (h)']==nearest_tp_plf].values[0]
     ax.plot(df_plf['Timepoint (h)'],df_plf[variable], c='darkmagenta', linewidth=3)
     ax.scatter(x_metric_plf,y_metric_plf,c='black', marker='D', s=100)
 
     x_metric_3d=df_3d[metric].values[0]
-    y_metric_3d=df_3d[variable][df_3d['Timepoint (h)']==x_metric_3d].values[0]
+    nearest_tp_3d = _find_nearest_timepoint(df_3d, 'Timepoint (h)', x_metric_3d)
+    y_metric_3d=df_3d[variable][df_3d['Timepoint (h)']==nearest_tp_3d].values[0]
     ax.plot(df_3d['Timepoint (h)'],df_3d[variable], c='orange', linewidth=3)
     ax.scatter(x_metric_3d,y_metric_3d,c='black', marker='D', s=100)
 
