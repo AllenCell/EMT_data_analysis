@@ -11,6 +11,7 @@ from shutil import rmtree
 import pyvista as pv
 import trimesh
 import point_cloud_utils as pcu
+from scipy.spatial import Delaunay
 
 from bioio import BioImage
 
@@ -23,14 +24,14 @@ import argparse
 #####----------Main Analysis Function----------#####
 
 def nuclei_localization(
-        df:pd.DataFrame, 
+        df:pd.DataFrame,
         data_id:str,
         output_directory:str,
         align_segmentation:bool=True,
     ):
     '''
         This is the main function to localize nuclei inside a 3D mesh.
-        
+
         Parameters
         ----------
         manifest_path: str
@@ -49,7 +50,7 @@ def nuclei_localization(
 
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
     tmp_dir.mkdir(exist_ok=True, parents=True)
-    
+
     # load segmentations and meshes
     # First, check for local ZARR file in the reprocessed directory
     local_zarr_base = Path("/allen/aics/emt/all_cells_masks/ZARR_Conversion/August_24_H2B_reprocess_v2/main")
@@ -69,7 +70,7 @@ def nuclei_localization(
         print(f"Using H2B segmentation from quilt manifest: {seg_path}")
     else:
         raise ValueError(f"The move {data_id} does not have H2B segmentations")
-        
+
     # import pdb; pdb.set_trace()
     segmentations = BioImage(seg_path)
 
@@ -117,7 +118,7 @@ def nuclei_localization(
 
     # load meshes
     meshes = pv.read(mesh_fn)
-    
+
     # localize nuclei for each timepoint
     num_timepoints = int(df['Image Size T'].values[0])
     nuclei = []
@@ -126,7 +127,7 @@ def nuclei_localization(
         if f'{timepoint}' not in meshes.keys():
             print(f"Mesh for timepoint {timepoint} not found.")
             continue
-        
+
         if align_segmentation:
             alignment_matrix = alignment.parse_rotation_matrix_from_string(df['Dual Camera Alignment Matrix Value'].values[0])
         else:
@@ -139,11 +140,11 @@ def nuclei_localization(
             align_segmentation=align_segmentation,
             alignment_matrix=alignment_matrix
         )
-        
+
         nuclei_tp['Data ID'] = data_id
         nuclei_tp['Time hr'] = timepoint / 0.5
         nuclei.append(nuclei_tp)
-        
+
     # save nuclei data
     nuclei = pd.concat(nuclei)
     cols = nuclei.columns.tolist()
@@ -156,18 +157,100 @@ def nuclei_localization(
     rmtree(tmp_dir)
 
 
-    
+
 #####----------Helper Functions----------#####
-    
+
+def fill_holes_flat_cap(mesh_pv: pv.PolyData) -> tuple:
+    """
+    Fill holes in a mesh by creating a flat cap at the max boundary Z level.
+    Creates a closed mesh directly without using pcu.make_mesh_watertight()
+    to avoid double-wall artifacts.
+
+    This is an MIT-licensed alternative to PyMeshFix's GPL-licensed repair.
+
+    Parameters
+    ----------
+    mesh_pv : pv.PolyData
+        PyVista mesh with holes to fill.
+
+    Returns
+    -------
+    tuple
+        (vertices, faces) of the closed mesh.
+    """
+    vert = mesh_pv.points.copy()
+    faces = mesh_pv.faces.reshape(-1, 4)[:, 1:].copy()
+
+    # Extract boundary edges (the hole outline)
+    boundary = mesh_pv.extract_feature_edges(
+        boundary_edges=True, feature_edges=False,
+        manifold_edges=False, non_manifold_edges=False
+    )
+    boundary_points = boundary.points
+
+    if len(boundary_points) == 0:
+        # No holes found, return as-is
+        return vert, faces
+
+    # Use max Z of boundary as cap level (preserves full biological extent)
+    cap_z = np.max(boundary_points[:, 2])
+
+    # Map boundary points to vertex indices in original mesh
+    boundary_indices = []
+    for bp in boundary_points:
+        dists = np.linalg.norm(vert - bp, axis=1)
+        idx = np.argmin(dists)
+        if dists[idx] < 0.1:
+            boundary_indices.append(idx)
+    boundary_indices = np.unique(boundary_indices)
+
+    # Create cap vertices (same XY as boundary, but at cap_z)
+    cap_verts = vert[boundary_indices].copy()
+    cap_verts[:, 2] = cap_z
+
+    # Add cap vertices to mesh
+    n_orig_verts = len(vert)
+    new_vert = np.vstack([vert, cap_verts])
+    cap_vert_indices = np.arange(n_orig_verts, n_orig_verts + len(cap_verts))
+    boundary_to_cap = dict(zip(boundary_indices, cap_vert_indices))
+
+    # Create side faces connecting boundary to cap
+    boundary_edges = boundary.lines.reshape(-1, 3)[:, 1:]
+    side_faces = []
+    for edge in boundary_edges:
+        p1, p2 = boundary_points[edge[0]], boundary_points[edge[1]]
+        d1 = np.linalg.norm(vert - p1, axis=1)
+        d2 = np.linalg.norm(vert - p2, axis=1)
+        v1, v2 = np.argmin(d1), np.argmin(d2)
+        if v1 in boundary_to_cap and v2 in boundary_to_cap:
+            c1, c2 = boundary_to_cap[v1], boundary_to_cap[v2]
+            side_faces.append([v1, v2, c2])
+            side_faces.append([v1, c2, c1])
+    side_faces = np.array(side_faces) if side_faces else np.empty((0, 3), dtype=int)
+
+    # Create cap faces using Delaunay triangulation
+    cap_xy = cap_verts[:, :2]
+    tri = Delaunay(cap_xy)
+    cap_faces = cap_vert_indices[tri.simplices]
+
+    # Combine all faces
+    if len(side_faces) > 0:
+        new_faces = np.vstack([faces, side_faces, cap_faces])
+    else:
+        new_faces = np.vstack([faces, cap_faces])
+
+    return new_vert, new_faces
+
+
 def localize_for_timepoint(
-        mesh:pv.PolyData, 
-        seg:np.ndarray, 
+        mesh:pv.PolyData,
+        seg:np.ndarray,
         align_segmentation:bool,
         alignment_matrix:np.ndarray
     ):
     '''
         This function localizes nuclei inside a 3D mesh for a given timepoint.
-        
+
         Parameters
         ----------
         mesh: pv.PolyData
@@ -179,7 +262,7 @@ def localize_for_timepoint(
         barcode: str
             Barcode of the movie.
     '''
-    
+
     # align segmentation if required
     if align_segmentation:
         transform = alignment.get_alignment_matrix(alignment_matrix)
@@ -192,30 +275,17 @@ def localize_for_timepoint(
         vert = outline_verts[i]
         mesh.extract_feature_edges(boundary_edges=True, feature_edges=False, manifold_edges=False)
         new_vert = np.array([vert[0], vert[1], max([vert[2], top])])
-        
+
         v_idx = mesh.find_closest_point(vert)
         mesh.points[v_idx] = new_vert
-
-    vert, faces = mesh.points, mesh.faces.reshape(mesh.n_faces, 4)[:,1:]
-    vert_up = np.zeros_like(vert)
-    np.copyto(vert_up, vert)
-    vert_up[:, 2] = max(vert[:,2])
-    face_up = np.zeros_like(faces)
-    np.copyto(face_up, faces)
-
-    mesh = trimesh.Trimesh(vertices=vert, faces=faces)
-    roof = trimesh.Trimesh(vertices=vert_up, faces=face_up)
-    mesh_conc = trimesh.util.concatenate(mesh, roof)
-
-    vert, faces = mesh_conc.vertices, mesh_conc.faces
-
-    vw, fw = pcu.make_mesh_watertight(vert, faces, 10000)
-
-    mesh = trimesh.Trimesh(vertices=vw, faces=fw)
 
     # transpose segmentation to XYZ coordinates and set z-scale for isotropic resolution
     seg = seg.transpose(2, 1, 0)
     scale = 2.88 / 0.271
+
+    # Fill holes and create watertight mesh using custom flat cap approach
+    vw, fw = fill_holes_flat_cap(mesh)
+    mesh = trimesh.Trimesh(vertices=vw, faces=fw)
 
     # initialize ray caster (for checking if a point is inside the mesh)
     rayCaster = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
@@ -227,7 +297,7 @@ def localize_for_timepoint(
     nucData["X"] = []
     nucData["Y"] = []
     nucData["Z"] = []
-    
+
     # localize nuclei
     props = regionprops(seg.astype(int))
     for prop in props:
@@ -235,7 +305,7 @@ def localize_for_timepoint(
         nucData["X"].append(int(prop.centroid[0]))
         nucData["Y"].append(int(prop.centroid[1]))
         nucData["Z"].append(int(prop.centroid[2]))
-        
+
         # get nuclei centroid (scales to isotropic resolution)
         centroid = [
             prop.centroid[0],
@@ -247,13 +317,13 @@ def localize_for_timepoint(
             contains = rayCaster.contains_points([centroid])
         except:
             continue
-        
+
         # check if centroid is inside the mesh
         if contains[0]:
             nucData['Inside'].append(True)
         else:
             nucData['Inside'].append(False)
-    
+
     return pd.DataFrame(nucData)
 
 
@@ -266,7 +336,7 @@ def run_nuclei_localization(
     ):
     '''
         This is the main function to localize nuclei inside a 3D mesh.
-        
+
         Parameters
         ----------
         manifest_path: str
