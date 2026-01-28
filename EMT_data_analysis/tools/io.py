@@ -12,12 +12,15 @@ def load_imaging_and_segmentation_dataset():
     return df
 
 def load_image_analysis_extracted_features(load_from_aws: bool = True):
-    path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv?versionId=ehxRXxC0FpidcpgXU_z.51T.nkWB0Yuj"
-    if not load_from_aws:
-        # Or read from local if the user decides to run Metric_computation.py
-        metric_comp_results_dir = get_results_directory_name() / "metric_computation"
-        path = metric_comp_results_dir / "Image_analysis_extracted_features.csv"
-    df = pd.read_csv(path)
+    metric_comp_results_dir = get_results_directory_name() / "metric_computation"
+    path = metric_comp_results_dir / "Image_analysis_extracted_features.csv"
+    try:
+        print('Trying to load features from local path.')
+        df = pd.read_csv(path)
+    except Exception:
+        print(f'Features not found at {path}. Loading from AWS instead. This may take a while...')
+        path = "https://allencell.s3.amazonaws.com/aics/emt_timelapse_dataset/manifests/Image_analysis_extracted_features.csv?versionId=ehxRXxC0FpidcpgXU_z.51T.nkWB0Yuj"
+        df = pd.read_csv(path)
     return df
 
 def load_inside_outside_classification(load_from_aws: bool = True):

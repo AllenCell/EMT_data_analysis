@@ -20,6 +20,37 @@ plt.rcParams["pdf.fonttype"] = 42
 
 warnings.filterwarnings("ignore")
 
+rng = np.random.default_rng(42) 
+
+def bootstrap_corr(x, y, method="Pearson", confidence_interval=0.95, n_bootstraps=2000, seed=42, verbose=True):
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    corr_func = pearsonr
+    if method == "Spearman":
+        corr_func = spearmanr
+
+    r_observed, p_value = corr_func(x, y)
+    n_samples = len(x)
+
+    inds = np.arange(n_samples)
+    boot_corrs = []
+    for _ in range(n_bootstraps):
+        resampled_inds = rng.choice(inds, size=n_samples, replace=True)
+        rx = x[resampled_inds]
+        ry = y[resampled_inds]
+        boot_r, _ = corr_func(rx, ry)
+        boot_corrs.append(boot_r)
+    alpha = (1.0-confidence_interval)/2.0
+    ci_low = np.nanpercentile(boot_corrs, 100*alpha)
+    ci_high = np.nanpercentile(boot_corrs, 100*(1.0-alpha))
+
+    if verbose:
+        print(f'Number of samples: {n_samples}')
+        print(f'{method} Correlation: {r_observed:.3g} | 95% CI: [{ci_low:.2f}, {ci_high:.2f}] | p-value: {p_value:.3g}')
+
+    return r_observed, p_value, ci_low, ci_high
+
 def run_all_analyses():
     """
     Run all analysis functions
@@ -29,6 +60,8 @@ def run_all_analyses():
 
     df = io.load_image_analysis_extracted_features()
     
+    print("Loaded image analysis extracted features and started running analyses...")
+
     plot_area_at_glass_all_data(df, FIGS_DIR, OUT_TYPE)
     plot_area_at_glass_h2b(df, FIGS_DIR, OUT_TYPE)
     plot_migration_timing_all_data(df, FIGS_DIR, OUT_TYPE)
@@ -611,10 +644,8 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
             migration = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             metric = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
         
-            pearson, p_pvalue = pearsonr(migration, metric)
-            spearman, s_pvalue = spearmanr(migration, metric)
-            print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
-            print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
+            pearson, p_pvalue, _, _ = bootstrap_corr(migration, metric, "Pearson")
+            spearman, s_pvalue, _, _ = bootstrap_corr(migration, metric, "Spearman")
 
             X = df_g['Migration Onset Time (Footprint Area Based)'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
             Y = df_g['gene_metric'][[cond in val for val in df_g['Experimental Condition'].values]].dropna()
@@ -638,11 +669,9 @@ def plot_gene_expression_experiments(df, figs_dir, out_type):
         migration = df_g['Migration Onset Time (Footprint Area Based)']
         metric = df_g['gene_metric']
 
-        pearson, p_pvalue = pearsonr(migration, metric)
-        spearman, s_pvalue = spearmanr(migration, metric)
-        print(f'Pearson Correlation: {pearson:.3g} | p-value: {p_pvalue:.3g}')
-        print(f'Spearman Correlation: {spearman:.3g} | p-value: {s_pvalue:.3g}')
-        
+        pearson, p_pvalue, _, _ = bootstrap_corr(migration, metric, "Pearson")
+        spearman, s_pvalue, _, _ = bootstrap_corr(migration, metric, "Spearman")
+
         X = df_g['Migration Onset Time (Footprint Area Based)']
         Y = df_g['gene_metric']
 
@@ -719,6 +748,8 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
         X = df_gene['Collagenease concentration (ug/mL)']
         Y = df_gene['Migration Onset Time (Footprint Area Based)']
 
+        _ = bootstrap_corr(X, Y, "Spearman")
+
         # It's important to add a constant (intercept) to the model
         X = sm.add_constant(X)
 
@@ -746,7 +777,6 @@ def plot_collagenase_analysis(df, figs_dir, out_type):
             print(f"On average, for each 1 ug/mL increase in drug concentration, the migration time changes by {slope_coeff:.2f} hours.")
         else:
             print("\nConclusion: The p-value for the slope is not less than 0.05, so we cannot conclude there is a significant linear relationship.")
-
 
 def plot_mmp_inhibitor_migration(df, figs_dir, out_type):
     """
@@ -1015,8 +1045,8 @@ def plot_inside_outside_migration_timing(df, figs_dir, out_type):
     X = dfio_scatter['Migration Onset Time (Footprint Area Based)']
     Y = dfio_scatter['Migration Onset Time (Inside/Outside Basement Membrane Based)']
 
-    p_results = pearsonr(X.values, Y.values)
-    r_results = spearmanr(X.values, Y.values)
+    p_results = bootstrap_corr(X.values, Y.values, "Pearson")
+    r_results = bootstrap_corr(X.values, Y.values, "Spearman")
     print('n: {0:d}'.format(n_movies_io))
     print('Pearson Correlation: {0:.3g} | p-Value: {1:.3g}'.format(p_results.statistic, p_results.pvalue))
     print('Spearman Correlation: {0:.3g} | p-Value: {1:.3g}'.format(r_results.statistic, r_results.pvalue))
