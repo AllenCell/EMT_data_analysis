@@ -1522,7 +1522,7 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
 def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
     """
     Generates plots of mean intensity of immunolabeling for different genes across conditions and rounds.
-    
+
     Parameters:
     -----------
     FIGS_DIR : str
@@ -1535,48 +1535,50 @@ def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
     df_summary = create_df_IF(df)
     Path(f"{FIGS_DIR}/Immunostaining").mkdir(exist_ok=True, parents=True)
 
-    # Set up colors, conditon order and figure size for plotting
+    # Round colors: gold/dark orange, royal blue, violet
     colors = {
-        'First Set Of Immunostaining':'lightcoral',
-        'Second Set Of Immunostaining':'turquoise',
-        'Third Set Of Immunostaining':'mediumseagreen'
+        'First Set Of Immunostaining': '#DAA520',   # Goldenrod (dark orange/gold)
+        'Second Set Of Immunostaining': '#4169E1',  # Royal Blue
+        'Third Set Of Immunostaining': '#8A2BE2'    # Blue Violet
     }
 
+    # Figure dimensions in cm -> inches
+    fig_width_cm = 2.1566
+    fig_height_cm = 2.0382
+    cm_to_inch = 1 / 2.54
+    fig_width = fig_width_cm * cm_to_inch
+    fig_height = fig_height_cm * cm_to_inch
+
     # Create individual plots of mean immunolabel intensity for different genes for each round and condition
-    for gene, df_gene in df_summary.groupby('Label'):    
-        plt.figure(figsize=(15,5))
+    for gene, df_gene in df_summary.groupby('Label'):
         min_start = {rnd:df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for rnd, df_rnd in df_gene[df_gene['Condition']=='2D PLF colony EMT'].groupby('Round')}
         fold = max([i/min_start[rnd] for rnd, df_rnd in df_gene.groupby('Round') for i in df_rnd['Mean Intensity'].values])
 
         n_rnds = len(df_gene['Round'].unique())
         w = 2.5/(n_rnds-1) if n_rnds>1 else 3
         offsets = {rnd:(i-1)/n_rnds for i, rnd in enumerate(df_gene['Round'].unique())}
-        ticks = [int(t) for t in df_gene['Time (h)'].unique()]
-        
+
         legend_handles = []
         for cond, df_cond in df_gene.groupby('Condition'):
-            
-            plt.figure()
+
+            fig, ax = plt.subplots(1, 1, figsize=(fig_width, fig_height))
             max_fold = 0
             for rnd, df_rnd in df_cond.groupby('Round'):
-                ax = plt.subplot(1,1,1)
-                ax.set_title(gene + ' - ' + cond)
-                ax.set_xlabel('Hour')
-                ax.set_ylabel('Mean Intensity (Fold)')
-                
+                ax.set_title(gene + ' - ' + cond, fontsize=5, fontfamily='Arial', fontweight='bold')
+
                 max_fold = max([max_fold, fold])
                 ax.set_ylim([0,max_fold+0.5])
-                
+
                 ints = [i/df_rnd[df_rnd['Time (h)']==0]['Mean Intensity'].mean() for i in df_rnd['Mean Intensity'].values]
                 ts = [t + offsets[rnd]*w for t in df_rnd['Time (h)'].values]
                 plt.scatter(ts, ints, s=7, c=colors[rnd], marker='D', label=f'{rnd}')
-                
+
                 data = {}
                 for t, i in zip(ts,ints):
                     if t not in data.keys():
                         data[t] = []
                     data[t].append(i)
-                
+
                 vplot = ax.violinplot(
                     dataset = list(data.values()),
                     positions = list(data.keys()),
@@ -1589,14 +1591,34 @@ def immunlabeling_mean_intensity_analysis(df, FIGS_DIR, OUT_TYPE):
 
                 if len(legend_handles) < n_rnds:
                     legend_handles.append(vplot)
-            ax.set_xticks(ticks)
-            ax.set_xticklabels(ticks)            
-            ax.legend()
+
+            # Y-axis: Arial bold 5pt, title "Mean Intensity (Fold)"
+            ax.set_ylabel('Mean Intensity (Fold)', fontsize=5, fontfamily='Arial', fontweight='bold')
+            ax.tick_params(axis='y', labelsize=5)
+            for label in ax.get_yticklabels():
+                label.set_fontfamily('Arial')
+                label.set_fontweight('bold')
+
+            # X-axis: no numbers, no title
+            # Ticks at every 4h, bold (longer) ticks at every 8h
+            max_time = int(df_gene['Time (h)'].max())
+            minor_ticks = [t for t in range(0, max_time + 1, 4) if t % 8 != 0]
+            major_ticks = list(range(0, max_time + 1, 8))
+            ax.set_xticks(major_ticks)
+            ax.set_xticks(minor_ticks, minor=True)
+            ax.set_xticklabels([])  # No numbers on x-axis
+            ax.set_xlabel('')       # No x-axis title
+            ax.tick_params(axis='x', which='major', length=4, width=1.0)
+            ax.tick_params(axis='x', which='minor', length=2, width=0.5)
+
+            ax.legend(fontsize=4)
+            plt.tight_layout()
             # Used_for information -
             # these figures are labeled as - Extended Data Fig. 3
             # data ids with label "TBXT" cases should be labeled as - Extended Data Fig. 3B
             # data ids with label "E-cadherin", "N-cadherin", "Eomes", "Snail", "Twist1", "Vimentin", "H3K36me2" cases should be labeled as - Extended Data Fig. 3C
-            plt.savefig(f"{FIGS_DIR}/Immunostaining/{gene} - {cond}.{OUT_TYPE}")
+            plt.savefig(f"{FIGS_DIR}/Immunostaining/{gene} - {cond}.{OUT_TYPE}", dpi=600)
+            plt.close(fig)
 
 
 # Run all analyses if this script is run
