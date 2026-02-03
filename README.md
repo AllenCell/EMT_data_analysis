@@ -7,13 +7,13 @@ This repository contains code for reproducing the plots shown in our manuscript 
 This code has been tested on Ubuntu 18.04.2 LTS and Windows 10 using Python 3.11.
 
 # Installation
-1. Install python 3.11 and pip>=24.0.0.
+1. Install Python 3.11 and pip >= 24.0.0.
 2. Install the dependencies for [lxml](https://lxml.de/installation.html).
 On Ubuntu or Debian:
 ```bash
 sudo apt-get install libxml2-dev libxslt-dev python-dev
 ```
-2. Create a new virtual environment.
+3. Create a new virtual environment and install dependencies:
 ```bash
 python -m venv venv
 source venv/bin/activate
@@ -22,58 +22,78 @@ pip install -r requirements.txt
 
 (Alternatively, if you have `pdm`, you can run `pdm sync`.)
 
-# How to run:
+# How to run
 
-## 1 - Feature extraction
+The analysis pipeline consists of four sequential steps. Steps 1-3 generate intermediate data, while Step 4 produces the final figures and statistical analysis. Pre-computed outputs from Steps 1-3 are available on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/), so Step 4 can be run directly without executing the preceding steps.
 
-Run: `python EMT_data_analysis/analysis_scripts/Feature_extraction.py`
+## Step 1 — Feature extraction
 
-This will generate one CSV for each movie with the extracted features. CSVs are stored in the folder `EMT_data_analysis/results/feature_extraction`
+```bash
+python EMT_data_analysis/analysis_scripts/Feature_extraction.py
+```
 
-## 2 - Metric computation
+Extracts per-Z-plane features from each movie: colony mask area and fluorescence intensity (main channel plus additional channels when available). Movies are processed in parallel using `joblib`. Each movie produces a CSV stored in `EMT_data_analysis/results/feature_extraction/`.
 
-Run: `python EMT_data_analysis/analysis_scripts/Metric_computation.py`
+**Dual-camera alignment**: The imaging system uses two cameras (Camera 1: brightfield + 638 nm; Camera 2: 488 nm + 561 nm). Since the all-cells segmentation mask is derived from brightfield (Camera 1), the mask is aligned to Camera 2 coordinates using the dual-camera calibration matrix before extracting intensity from 488/561 nm channels. Channels on the same camera as the mask do not require alignment.
 
-This will generate a single CSV containing information about all the movies to be used for analysis. The manifest is saved as `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`.
+## Step 2 — Metric computation
 
-## 3 - Nuclei localization
+```bash
+python EMT_data_analysis/analysis_scripts/Metric_computation.py
+```
 
-Run: `python EMT_data_analysis/analysis_scripts/Nuclei_localization.py`
+Compiles per-movie CSVs from Step 1 into a single manifest and computes gene-specific expression metrics:
+- **SOX2**: Time of half-maximal expression (first timepoint where smoothed intensity drops to 50% of dynamic range)
+- **TBXT**: Time of maximum expression (peak of smoothed intensity curve)
+- **EOMES**: Time of maximum expression (peak of smoothed intensity curve)
+- **CDH1**: Time of inflection of E-cadherin expression (minimum of second derivative of smoothed intensity)
 
-This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
+Output: `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`
 
-## 4 - Analysis Plots
+## Step 3 — Nuclei localization
 
-Run: `python EMT_data_analysis/analysis_scripts/Analysis_tools.py`
+```bash
+python EMT_data_analysis/analysis_scripts/Nuclei_localization.py
+```
 
-This will generate the plots in the manuscript and store them in `results/figures` folder. The manifests used as inputs in this workflow are automatically downloaded from [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/) by default. 
+Classifies individual nuclei as inside or outside the collagen IV basement membrane mesh at each timepoint. Nuclear centroids from 3D instance segmentation are tested against the mesh boundary using ray-casting.
 
-## 5 - [Optional] 3D Example Rendering
+Output: `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`
 
-The functions in `EMT_data_analysis/figure_generation` can be used to generate 3D renderings shown in the paper. Functions have only been tested on Ubuntu 18.04/22.04
+## Step 4 — Analysis and figure generation
+
+```bash
+python EMT_data_analysis/analysis_scripts/Analysis_tools.py
+```
+
+Generates all manuscript figures and statistical analyses. By default, input manifests are automatically downloaded from [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/), so this step can be run independently of Steps 1-3.
+
+Output: `EMT_data_analysis/results/figures/`
+
+## Optional — 3D example rendering
+
+The functions in `EMT_data_analysis/figure_generation/` can be used to generate 3D renderings shown in the paper. These have only been tested on Ubuntu 18.04/22.04.
 
 On Ubuntu or Debian:
 ```bash
 sudo apt-get install xvfb libgl1-mesa-glx
 ```
-On Windows: 
+On Windows:
 Comment out any instance of `pv.start_xvfb()` in the code before running.
 
 ### All Cells Mask
-Run
 ```bash
 python EMT_data_analysis/figure_generation/colony_mask.py --data_id [Optional] --output_directory [Optional]
 ```
 If no input arguments are provided, the code will default to the data shown in the paper and output results to `EMT_data_analysis/results/3D_all_cells_mask`.
-Data ID values are only valid inputs if they have a none-empty value for `All Cells Mask File Download` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/)
+Data ID values are only valid inputs if they have a non-empty value for `All Cells Mask File Download` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/).
 
 ### Inside-Outside Classification
-Run
 ```bash
 python EMT_data_analysis/figure_generation/inside-outside_classification.py --data_id [Optional] --output_directory [Optional]
 ```
 If no input arguments are provided, the code will default to the data shown in the paper and output results to `EMT_data_analysis/results/Inside-Outside/mesh-figures`.
-Data ID values are only valid inputs if they have a none-empty value for `CollagenIV Segmentation Mesh Folder` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/)
+Data ID values are only valid inputs if they have a non-empty value for `CollagenIV Segmentation Mesh Folder` in the `image_and_segmentation_data.csv` manifest on [AWS](https://open.quiltdata.com/b/allencell/tree/aics/emt_timelapse_dataset/manifests/).
 
 
 # Contact
