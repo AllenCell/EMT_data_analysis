@@ -32,9 +32,24 @@ This will generate one CSV for each movie with the extracted features. CSVs are 
 
 ## 2 - Metric computation
 
-Run: `python EMT_data_analysis/analysis_scripts/Metric_computation.py`
+```bash
+python EMT_data_analysis/analysis_scripts/Metric_computation.py
+```
 
-This will generate a single CSV containing information about all the movies to be used for analysis. The manifest is saved as `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`.
+Compiles per-movie CSVs from Step 1 into a single manifest and computes gene-specific expression metrics:
+- **SOX2**: Time of half-maximal expression (first timepoint where smoothed intensity drops to 50% of dynamic range)
+- **TBXT**: Time of maximum expression (peak of smoothed intensity curve)
+- **EOMES**: Time of maximum expression (peak of smoothed intensity curve)
+- **CDH1**: Time of inflection of E-cadherin expression (minimum of second derivative of smoothed intensity)
+
+Mean intensity is computed as total intensity divided by all-cells mask area, averaged over the bottom 10 Z-slices above the glass. Intensity curves are smoothed using a Savitzky-Golay filter (polynomial order 2). Movies are processed in parallel using `joblib`.
+
+To load the imaging manifest from a local file instead of AWS:
+```bash
+python EMT_data_analysis/analysis_scripts/Metric_computation.py --local [--local-csv path/to/file.csv]
+```
+
+Output: `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`
 
 ## 3 - Nuclei localization
 
