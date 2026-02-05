@@ -38,9 +38,23 @@ This will generate a single CSV containing information about all the movies to b
 
 ## 3 - Nuclei localization
 
-Run: `python EMT_data_analysis/analysis_scripts/Nuclei_localization.py`
+```bash
+python EMT_data_analysis/analysis_scripts/Nuclei_localization.py
+```
 
-This will generate CSV for individual nuclei classified as inside the basement memebrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
+This will generate CSV for individual nuclei classified as inside the basement membrane or not over the course of the timelapse for EOMES and H2B movies. The manifest is saved as `EMT_data_analysis/results/nuclei_localization/Migration_timing_trough_mesh_extracted_feature.csv`.
+
+The script transforms the CollagenIV mesh to match nuclei coordinates (Camera 2 space) using the inverse of the dual camera alignment matrix. Mesh holes are filled using a custom flat-cap approach based on Delaunay triangulation. Movies are processed in parallel using `joblib`.
+
+To load the imaging manifest from a local file instead of AWS:
+```bash
+python EMT_data_analysis/analysis_scripts/Nuclei_localization.py --local [--local-csv path/to/file.csv]
+```
+
+Additional options:
+- `--n_jobs N`: Number of parallel jobs (default: 4). Reduce if memory issues occur.
+- `--sequential`: Run in sequential mode (for debugging).
+- `--no-align`: Disable mesh-to-nuclei alignment.
 
 ## 4 - Analysis Plots
 
