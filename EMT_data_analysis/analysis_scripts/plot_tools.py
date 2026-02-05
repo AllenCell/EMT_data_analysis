@@ -3,23 +3,50 @@ import pandas as pd
 import seaborn as sns
 from scipy import stats
 import scikit_posthocs as sp
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+mpl.rcParams['svg.fonttype'] = 'none'  # Keep text editable in SVG
 
 from EMT_data_analysis.tools import const
 
+
+def _find_nearest_timepoint(df, time_column, target_time):
+    """
+    Find the nearest timepoint value in a dataframe column to a target time.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Dataframe containing the time column
+    time_column : str
+        Name of the column containing timepoint values
+    target_time : float
+        Target time value to find the nearest match for
+
+    Returns
+    -------
+    float
+        The nearest timepoint value from the dataframe
+    """
+    timepoints = df[time_column].unique()
+    idx = np.abs(timepoints - target_time).argmin()
+    return timepoints[idx]
+
+
 def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable='Mean Intensity', out_type='pdf'):
     '''
-    This function  plots one example for individual trajectories of mean intensity over time for each condition to represent how the gene metrics 
+    This function  plots one example for individual trajectories of mean intensity over time for each condition to represent how the gene metrics
     (time at max EOMES expression, Time at inflection of E-Cad loss and Time at half maximal loss of SOX2 expression) were estimated.
     It is also used to plot migration time estimation example for area at glass over time.
     Parameters
     ----------
     df_int: DataFrame
         Dataframe with mean intensity over time information for each movie in the dataset along with the respective gene metrics.
-    
+
     id_plf: String
         Movie ID to plot the mean intensity trajectory for a movie with 2D PLF colony EMT condition
-    
+
     id_2d: String
         Movie ID to plot the mean intensity trajectory for a movie with 2D colony EMT condition
 
@@ -39,35 +66,84 @@ def plot_examples(df_int, id_plf, id_2d, id_3d, gene, figs_dir, metric,variable=
     -------
     saves plots in the figs_dir'''
 
+    # Publication figure dimensions
+    cm_to_inch = 1 / 2.54
+    fig_width_cm = 2.8846   # x-axis width
+    fig_height_cm = 1.889   # y-axis height
+    pad_left = 0.55
+    pad_bottom = 0.45
+    pad_right = 0.05
+    pad_top = 0.05
+    total_w = fig_width_cm * cm_to_inch + pad_left + pad_right
+    total_h = fig_height_cm * cm_to_inch + pad_bottom + pad_top
+    pt_to_inch = 1 / 72.0
+
+    y_cfg = const.INTENSITY_Y_CONFIG.get(gene, None)
+
+    # Colors
+    color_orange = (255/255, 165/255, 0/255)
+    color_blue   = (0/255, 191/255, 255/255)
+    color_purple = (139/255, 0/255, 139/255)
+    trace_lw = 0.75 * pt_to_inch * 72  # 0.75 pt
+
     df_plf=df_int[df_int['Data ID']==id_plf]
     df_2d=df_int[df_int['Data ID']==id_2d]
     df_3d=df_int[df_int['Data ID']==id_3d]
 
-    fig,ax=plt.subplots(1,1,figsize=(8,6))
+    fig, ax = plt.subplots(1, 1)
 
+    # Use nearest timepoint matching to handle floating point precision differences
     x_metric_2d=df_2d[metric].values[0]
-    y_metric_2d=df_2d[variable][df_2d['Timepoint (h)']==x_metric_2d].values[0]
-    ax.plot(df_2d['Timepoint (h)'],df_2d[variable], c='deepskyblue', linewidth=3)
-    ax.scatter(x_metric_2d,y_metric_2d,c='black', marker='D', s=100)
-
+    nearest_tp_2d = _find_nearest_timepoint(df_2d, 'Timepoint (h)', x_metric_2d)
+    y_metric_2d=df_2d[variable][df_2d['Timepoint (h)']==nearest_tp_2d].values[0]
+    ax.plot(df_2d['Timepoint (h)'],df_2d[variable], c=color_blue, linewidth=trace_lw)
+    ax.scatter(x_metric_2d,y_metric_2d,c='black', marker='D', s=8, zorder=5)
 
     x_metric_plf=df_plf[metric].values[0]
-    y_metric_plf=df_plf[variable][df_plf['Timepoint (h)']==x_metric_plf].values[0]
-    ax.plot(df_plf['Timepoint (h)'],df_plf[variable], c='darkmagenta', linewidth=3)
-    ax.scatter(x_metric_plf,y_metric_plf,c='black', marker='D', s=100)
+    nearest_tp_plf = _find_nearest_timepoint(df_plf, 'Timepoint (h)', x_metric_plf)
+    y_metric_plf=df_plf[variable][df_plf['Timepoint (h)']==nearest_tp_plf].values[0]
+    ax.plot(df_plf['Timepoint (h)'],df_plf[variable], c=color_purple, linewidth=trace_lw)
+    ax.scatter(x_metric_plf,y_metric_plf,c='black', marker='D', s=8, zorder=5)
 
     x_metric_3d=df_3d[metric].values[0]
-    y_metric_3d=df_3d[variable][df_3d['Timepoint (h)']==x_metric_3d].values[0]
-    ax.plot(df_3d['Timepoint (h)'],df_3d[variable], c='orange', linewidth=3)
-    ax.scatter(x_metric_3d,y_metric_3d,c='black', marker='D', s=100)
+    nearest_tp_3d = _find_nearest_timepoint(df_3d, 'Timepoint (h)', x_metric_3d)
+    y_metric_3d=df_3d[variable][df_3d['Timepoint (h)']==nearest_tp_3d].values[0]
+    ax.plot(df_3d['Timepoint (h)'],df_3d[variable], c=color_orange, linewidth=trace_lw)
+    ax.scatter(x_metric_3d,y_metric_3d,c='black', marker='D', s=8, zorder=5)
 
+    # Y-axis
+    if y_cfg is not None:
+        ymin, ymax = y_cfg['ylim']
+        y_pad = y_cfg['ytick_interval'] * 0.3
+        ax.set_ylim(ymin - y_pad, ymax + y_pad)
+        ax.set_yticks(np.arange(ymin, ymax + 1, y_cfg['ytick_interval']))
+        ylabel = y_cfg.get('ylabel', 'Mean intensity (AU)')
+        ax.set_ylabel(ylabel, fontsize=5, fontfamily='Arial')
+    else:
+        ax.set_ylabel(variable, fontsize=5, fontfamily='Arial')
 
-    plt.ylabel(f'{variable}', fontsize=16)
-    plt.xlabel('Time (h)', fontsize=16)
+    # X-axis: 0-50, interval 10, with padding
+    ax.set_xlim(-2, 52)
+    ax.set_xticks(np.arange(0, 51, 10))
+    ax.set_xlabel('Time (h)', fontsize=5, fontfamily='Arial')
 
-    plt.xlim(-1,50)
-    plt.tight_layout()
+    # Tick label styling
+    ax.tick_params(axis='both', labelsize=5, width=0.5 * pt_to_inch * 72,
+                   length=3, direction='out', pad=2)
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontfamily('Arial')
+        label.set_fontsize(5)
+
+    # Axis line (spine) width: 0.5 pt
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5 * pt_to_inch * 72)
+
+    # Remove top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
     plt.savefig(rf'{figs_dir}/Example_{gene}_{metric}.{out_type}', dpi=600, transparent=True)
+    plt.close(fig)
 
 def run_statistics (x,y,z):
     '''
@@ -201,5 +277,20 @@ def Intensity_over_z(df, figs_dir, color_map='coolwarm', out_type='pdf'):
 
         ax= sns.heatmap(df_nanmerge, cmap=color_map, vmin=color_min, vmax=color_max )
         ax.invert_yaxis()
+
+        # Set x-axis ticks at increments of 4 hours
+        x_cols = df_nanmerge.columns.tolist()
+        xtick_positions = [i for i, v in enumerate(x_cols) if v % 4 == 0]
+        xtick_labels = [int(x_cols[i]) for i in xtick_positions]
+        ax.set_xticks([p + 0.5 for p in xtick_positions])
+        ax.set_xticklabels(xtick_labels)
+
+        # Set y-axis ticks at increments of 4 z-planes
+        y_rows = df_nanmerge.index.tolist()
+        ytick_positions = [i for i, v in enumerate(y_rows) if v % 4 == 0]
+        ytick_labels = [int(y_rows[i]) for i in ytick_positions]
+        ax.set_yticks([p + 0.5 for p in ytick_positions])
+        ax.set_yticklabels(ytick_labels)
+
         plt.title(f'Condition={c}, Data ID={id}')
         fig.savefig(rf'{figs_dir}/Histogram_zo1_{c}_{id}.{out_type}', dpi=600)
