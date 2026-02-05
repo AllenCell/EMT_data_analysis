@@ -434,7 +434,7 @@ def run_nuclei_localization(
     )
 
     # Filter to movies used in nucleus-BM workflow
-    df_cond = df_manifest[df_manifest['Used For'].str.contains("nucleus-BM workflow dataset", na=False)]
+    df_cond = df_manifest[df_manifest['Used For'].str.contains("nucleus-BM workflow", na=False)]
     data_ids = pd.unique(df_cond['Data ID'])
 
     print(f"Processing {len(data_ids)} movies with CollagenIV segmentations.")
