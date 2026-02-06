@@ -36,6 +36,8 @@ Extracts per-Z-plane features from each movie: colony mask area and fluorescence
 
 **Dual-camera alignment**: The imaging system uses two cameras (Camera 1: brightfield + 638 nm; Camera 2: 488 nm + 561 nm). Since the all-cells segmentation mask is derived from brightfield (Camera 1), the mask is aligned to Camera 2 coordinates using the dual-camera calibration matrix before extracting intensity from 488/561 nm channels. Channels on the same camera as the mask do not require alignment.
 
+Output: `EMT_data_analysis/results/feature_extraction/Features_bf_colony_mask_*Data-ID*.csv`
+
 ## Step 2 — Metric computation
 
 ```bash
@@ -48,6 +50,12 @@ Compiles per-movie CSVs from Step 1 into a single manifest and computes gene-spe
 - **EOMES**: Time of maximum expression (peak of smoothed intensity curve)
 - **CDH1**: Time of inflection of E-cadherin expression (minimum of second derivative of smoothed intensity)
 
+Mean intensity is computed as total intensity divided by all-cells mask area, averaged over the bottom 10 Z-slices above the glass. Intensity curves are smoothed using a Savitzky-Golay filter (polynomial order 2). Movies are processed in parallel using `joblib`.
+
+To load the imaging manifest from a local file instead of AWS:
+```bash
+python EMT_data_analysis/analysis_scripts/Metric_computation.py --local [--local-csv path/to/file.csv]
+```
 Output: `EMT_data_analysis/results/metric_computation/Image_analysis_extracted_features.csv`
 
 ## Step 3 — Nuclei localization
