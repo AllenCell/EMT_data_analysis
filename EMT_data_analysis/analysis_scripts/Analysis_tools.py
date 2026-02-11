@@ -2288,13 +2288,13 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
     df = create_df_IF(df)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
-    df_normalized = df.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
+    df_normalized = df.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
 
     # Average all the normalized intensities across the time-point
-    df_averaged = df_normalized.groupby(["Label", "Condition"], sort=False).apply(_average_across_time).reset_index(drop=True)
+    df_averaged = df_normalized.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_average_across_time).reset_index(drop=True)
 
     # Normalize each to 0-100% for easier comparison across Labels
-    df_final = df_averaged.groupby(["Label", "Condition"], sort=False).apply(_normalize_to_100).reset_index(drop=True)
+    df_final = df_averaged.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_normalize_to_100).reset_index(drop=True)
 
     # Sorting label and condiiton order
     df_sort = _sort_dataframe(df_final)
