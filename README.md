@@ -18,6 +18,7 @@ sudo apt-get install libxml2-dev libxslt-dev python-dev
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+pip install .
 ```
 
 (Alternatively, if you have `pdm`, you can run `pdm sync`.)
