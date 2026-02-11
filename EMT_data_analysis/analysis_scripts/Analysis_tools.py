@@ -2289,10 +2289,10 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
     df["Mean Intensity"] = df["Mean Intensity"].astype(float)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
-    t0_means = df[df["Time (h)"] == 0].groupby(["Label", "Condition", "Round"])["Mean Intensity"].mean()
-    df = df.set_index(["Label", "Condition", "Round"])
-    df["Mean Intensity"] /= t0_means
-    df = df.reset_index()
+    t0_means = df[df["Time (h)"] == 0].groupby(["Label", "Condition", "Round"])["Mean Intensity"].mean().rename("_t0_mean")
+    df = df.merge(t0_means, on=["Label", "Condition", "Round"])
+    df["Mean Intensity"] /= df["_t0_mean"]
+    df = df.drop(columns=["_t0_mean"])
 
     # Average all the normalized intensities across the time-point
     df_averaged = df.groupby(["Label", "Condition", "Time (h)"], as_index=False, sort=False).agg({"Mean Intensity": "mean"})
