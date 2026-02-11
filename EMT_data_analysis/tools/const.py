@@ -49,3 +49,12 @@ EXAMPLE_ACM_IDS = [
     '3500005824_36',
     '3500006256_12'
 ]
+
+# Y-axis configuration for mean intensity plots (shared by summary and example plots)
+INTENSITY_Y_CONFIG = {
+    'SOX2':  {'ylim': (100, 170), 'ytick_interval': 10},
+    'TBXT':  {'ylim': (100, 400), 'ytick_interval': 50},
+    'EOMES': {'ylim': (100, 155), 'ytick_interval': 10},
+    'CDH1':  {'ylim': (100, 145), 'ytick_interval': 10},
+    'HIST1H2BJ': {'ylim': (0, 170000), 'ytick_interval': 20000, 'ylabel': 'Colony area over bottom 2 Z (µm²)'},
+}

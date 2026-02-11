@@ -45,9 +45,9 @@ def main(
     # load data
     df_meta = io.load_imaging_and_segmentation_dataset()
     df_meta = df_meta[df_meta['Data ID'] == data_id]
-    df = io.load_inside_outside_classification()
+    df = io.load_inside_outside_classification(False)
+    df["Inside"] = df["Inside"].astype(bool)
     df = df[df['Data ID'] == data_id]
-    df = df[df['Z']<27]
 
     tmp_dir = Path("./emt_tmp/nuclei_localization/")
     tmp_dir.mkdir(exist_ok=True, parents=True)
@@ -89,7 +89,7 @@ def main(
     pv.start_xvfb()
     pl = pv.Plotter(off_screen=True, notebook=False, window_size=(1088, 1088))
     pl.zoom_camera(0.8)
-    for tp in tqdm([0, 32, 64]):
+    for tp in tqdm([0, 60, 70]):
         pl.clear()
         
         # get the data for the timepoint
