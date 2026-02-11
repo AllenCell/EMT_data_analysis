@@ -45,7 +45,7 @@ def main(
     # load data
     df_meta = io.load_imaging_and_segmentation_dataset()
     df_meta = df_meta[df_meta['Data ID'] == data_id]
-    df = io.load_inside_outside_classification(False)
+    df = io.load_inside_outside_classification()
     df["Inside"] = df["Inside"].astype(bool)
     df = df[df['Data ID'] == data_id]
 
