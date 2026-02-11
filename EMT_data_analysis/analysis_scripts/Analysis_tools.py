@@ -2284,20 +2284,26 @@ def plot_immunolabeling_heatmap(df: pd.DataFrame, figs_dir: str, output_type: st
         File type for the output figures (e.g. 'svg', 'png')
     """
 
-    # Set up dataset 
+    # Set up dataset
     df = create_df_IF(df)
+    df["Mean Intensity"] = df["Mean Intensity"].astype(float)
 
     # Normalize each to time 0 mean intensity (for that condition and round)
-    df_normalized = df.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_normalize_to_T0_mean_by_round_and_condiiton).reset_index(drop=True)
+    t0_means = df[df["Time (h)"] == 0].groupby(["Label", "Condition", "Round"])["Mean Intensity"].mean()
+    df = df.set_index(["Label", "Condition", "Round"])
+    df["Mean Intensity"] /= t0_means
+    df = df.reset_index()
 
     # Average all the normalized intensities across the time-point
-    df_averaged = df_normalized.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_average_across_time).reset_index(drop=True)
+    df_averaged = df.groupby(["Label", "Condition", "Time (h)"], as_index=False, sort=False).agg({"Mean Intensity": "mean"})
 
     # Normalize each to 0-100% for easier comparison across Labels
-    df_final = df_averaged.groupby(["Label", "Condition"], sort=False, group_keys=False).apply(_normalize_to_100).reset_index(drop=True)
+    mi_min = df_averaged.groupby(["Label", "Condition"])["Mean Intensity"].transform("min")
+    mi_max = df_averaged.groupby(["Label", "Condition"])["Mean Intensity"].transform("max")
+    df_averaged["Mean Intensity"] = (df_averaged["Mean Intensity"] - mi_min) / (mi_max - mi_min) * 100
 
     # Sorting label and condiiton order
-    df_sort = _sort_dataframe(df_final)
+    df_sort = _sort_dataframe(df_averaged)
     
     # Used_for information - 
     # these figures are labeled as - Fig. 4C
