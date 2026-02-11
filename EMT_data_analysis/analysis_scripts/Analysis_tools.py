@@ -2079,6 +2079,7 @@ def _normalize_to_T0_mean_by_round_and_condiiton(group: pd.DataFrame) -> pd.Data
     Normalize each to time 0 mean intensity (for that condition and round)
     loop through each round and condition
     """
+    group["Mean Intensity"] = group["Mean Intensity"].astype(float)
     for round in group["Round"].unique():
         sub_group = group[(group["Round"] == round)]
         group.loc[sub_group.index, "Mean Intensity"] = sub_group["Mean Intensity"] / sub_group[sub_group["Time (h)"] == 0]["Mean Intensity"].mean()
