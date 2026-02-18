@@ -33,7 +33,7 @@ File type | Filename Extension
 Microscope images | `raw_converted.ome.zarr`
 All cells mask | `all_cells_mask.ome.zarr`
 H2B nuclei segmentation mask | `H2B_nuclear_segmentation.ome.zarr`
-EOMES nuclei segmentation mask | `EOMES_nuclear_segmentation.ome.zarr`
+H2B nuclei segmentation mask | `H2B_nuclear_segmentation.ome.zarr`
 CytoGFP ground truth segmentation mask | `cytoGFP_ground_truth_segmentation.ome.zarr`
 CollagenIV ground truth segmentation mask | `collagenIV_ground_truth_segmentation.ome.zarr`
 CollagenIV segmentation probability | `collagenIV_segmentation_probability.ome.zarr`
@@ -58,6 +58,8 @@ The `manifests` directory contains 6 manifests for streamlined data accessibilit
 * `Migration_timing_through_mesh_extracted_features.csv`: contains class annotations for the centroids of individual nuclei, indicating whether each centroid is inside or outside the `CollagenIV_segmentation_mesh`.
 
 * `Migration_timing_through_mesh_extracted_features_column_description.csv`: A complete description of each column label present in the `Migration_timing_through_mesh_extracted_features.csv` is provided here.
+
+* `ddPCR_SNAI1_HPRT1_Ratios.csv` & `ddPCR_TBXT_HPRT1_Ratios.csv`: [Non-imaged-based data] Ratios of positive droplets for SNAI1- and TBXT-targeting CRISPRi cell lines and controls, normalized to the housekeeping gene HPRT1, are provided for each individual lysate used in ddPCR-based validation of CRISPRi-mediated knockdown. This represents the only dataset in the study derived from non–image-based measurements 
 
 
 ## supplemental_files
